@@ -1,0 +1,74 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"editor.formatOnSave": true,
+		"files.insertFinalNewline": true,
+		"files.trimTrailingWhitespace": true,
+		"python.sortImports.path": "isort",
+		"python.formatting.provider": "black",
+		"python.languageServer": "Pylance",
+		"python.defaultInterpreterPath": "python",
+		"python.linting.enabled": true,
+		"python.linting.lintOnSave": true,
+		"python.linting.flake8Enabled": true,
+		"python.testing.pytestEnabled": false,
+		"python.testing.unittestEnabled": true,
+		"python.testing.promptToConfigure": false,
+		"python.linting.ignorePatterns": [
+			".vscode/*.py",
+			"**/site-packages/**/*.py",
+			"**/__pycache__/*",
+			"dist/*",
+			"build/*"
+		],
+		"[python]": {
+			"editor.codeActionsOnSave": {
+				"source.organizeImports": true
+			}
+		},
+		"python.testing.unittestArgs": [
+			"-v",
+			"-s",
+			".",
+			"-p",
+			"test_*.py"
+		],
+		"files.exclude": {
+			"**/__pycache__": true
+		},
+		"nixEnvSelector.nixFile": "${workspaceRoot}/shell.nix"
+	},
+	"launch": {
+		"configurations": [
+			{
+				"name": "Python: Debug Program",
+				"justMyCode": false,
+				"console": "integratedTerminal",
+				"type": "python",
+				"request": "launch",
+				"module": "nixos_nspawn",
+				"args": []
+			},
+			{
+				"name": "Python: Current file",
+				"justMyCode": false,
+				"console": "integratedTerminal",
+				"type": "python",
+				"request": "launch",
+				"program": "${file}",
+				"args": []
+			}
+		],
+		"compounds": []
+	},
+	"extensions": {
+		"recommendations": [
+			"ms-python.python",
+			"arrterian.nix-env-selector"
+		]
+	}
+}

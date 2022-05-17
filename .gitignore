@@ -127,3 +127,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Nix results
+result
+result/
+
+# Custom
+*.pex
+hidden/
