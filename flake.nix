@@ -1,61 +1,65 @@
 {
     inputs = {
         nixpkgs.url = "nixpkgs";
+        poetry2nix = {
+            url = "github:nix-community/poetry2nix";
+            inputs.nixpkgs.follows = "nixpkgs";
+        };
+        flake-utils.url = "github:numtide/flake-utils";
     };
 
-    outputs = { self, nixpkgs }: let
-        system = "x86_64-linux";
+    outputs = { self, nixpkgs, poetry2nix, flake-utils }: flake-utils.lib.eachDefaultSystem (system: let
+        name = "nixos-nspawn";
+        version = builtins.readFile "${self}/nixos_nspawn/version.txt";
+        python = pkgs.python310;
+
+        projectDir = self;
+
         pkgs = import "${nixpkgs}/pkgs/top-level/default.nix" {
             localSystem.system = system;
-            overlays = [];
+            overlays = [ poetry2nix.overlay ];
             config = {};
         };
 
-        name = "nixos-nspawn";
-
-        python = pkgs.python310;
-
-        prodDeps = pypi: with pypi; [
-            rich
-        ];
-
-        devDeps = pypi: with pypi; [
-            setuptools
-        ];
-
-        allDeps = pypi: (prodDeps pypi) ++ (devDeps pypi);
-    in {
-
-        packages."${system}" = rec {
-            default = python.pkgs.buildPythonPackage {
-                pname = name;
-                version = builtins.readFile "${self}/nixos_nspawn/version.txt";
-                src = "${self}/";
-                buildInputs = devDeps python.pkgs;
-                propagatedBuildInputs = prodDeps python.pkgs;
+        # self & super refers to poetry2nix
+        p2n = pkgs.poetry2nix.overrideScope' (self: super: {
+            # pyself & pysuper refers to python packages
+            defaultPoetryOverrides = super.defaultPoetryOverrides.extend (pyself: pysuper: {
+                # flake8-annotations is missing poetry-core when parsed by poetry2nix
+                flake8-annotations = pysuper.flake8-annotations.overridePythonAttrs (oldAttrs: {
+                    nativeBuildInputs = (oldAttrs.nativeBuildInputs or [ ]) ++ [ pysuper.poetry-core ];
+                });
+            });
+        });
+    in rec {
+        packages = {
+            default = p2n.mkPoetryApplication {
+                inherit python projectDir;
+                # Skip installing dev-dependencies
+                # https://github.com/nix-community/poetry2nix/issues/47
+                # doCheck = false;
+                meta = {
+                    name = "${name}-${version}";
+                };
             };
-            "${name}" = default;
+            "${name}" = packages.default;
         };
 
-        apps."${system}" = rec {
-            default = {
-                type = "app";
-                program = "${python.pkgs.toPythonApplication self.packages."${system}".default}/bin/${name}";
-            };
-            "${name}" = default;
+        apps = {
+            default = flake-utils.lib.mkApp { drv = packages.default; };
+            "${name}" = apps.default;
+        };
+
+        devShells = {
+            default = (p2n.mkPoetryEnv {
+                inherit python projectDir;
+            }).overrideAttrs(final: prev: { nativeBuildInputs = [ python.pkgs.poetry ]; });
+            poetry = (python.withPackages (pyPkgs: [ pyPkgs.poetry ])).env;
         };
 
         # Nix < 2.7 compatibility
-        defaultPackage."${system}" = self.packages."${system}".default;
-        defaultApp."${system}" = self.apps."${system}".default;
-
-        # devShell."${system}" = pkgs.mkShell {
-        #     name = "${name}-dev";
-        #     buildInputs = [
-        #         (python.withPackages allDeps)
-        #     ];
-        # };
-        # Simpler, equivalent method...
-        devShell."${system}" = (python.withPackages allDeps).env;
-    };
+        defaultPackage = packages.default;
+        defaultApp = apps.default;
+        devShell = devShells.default;
+    });
 }

@@ -1,0 +1,8 @@
+# Taken from black's (the formatter) recommendations
+# Max line length is 10% under target as per B950
+[flake8]
+max-line-length = 91
+max-complexity = 16
+select = C,E,F,W,B,B902,B950,M,A,N
+ignore = E203, E501, W503, ANN101, ANN102
+exclude = dist/*,build/*,__pycache__,.git,.vscode,*.egg-info
