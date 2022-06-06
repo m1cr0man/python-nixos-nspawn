@@ -11,7 +11,7 @@
 		"python.sortImports.path": "isort",
 		"python.formatting.provider": "black",
 		"python.languageServer": "Pylance",
-		"python.defaultInterpreterPath": "python",
+		"python.defaultInterpreterPath": "${workspaceRoot}/.venv/bin/python3",
 		"python.linting.enabled": true,
 		"python.linting.lintOnSave": true,
 		"python.linting.flake8Enabled": true,
@@ -68,7 +68,6 @@
 	"extensions": {
 		"recommendations": [
 			"ms-python.python",
-			"arrterian.nix-env-selector"
 		]
 	}
 }

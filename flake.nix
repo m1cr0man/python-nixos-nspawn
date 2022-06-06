@@ -43,6 +43,9 @@
                 };
             };
             "${name}" = packages.default;
+            "${name}-venv" = (p2n.mkPoetryEnv {
+                inherit python projectDir;
+            }).overrideAttrs (final: prev: { nativeBuildInputs = prev.nativeBuildInputs ++ [ python.pkgs.poetry ]; });
         };
 
         apps = {
@@ -51,9 +54,7 @@
         };
 
         devShells = {
-            default = (p2n.mkPoetryEnv {
-                inherit python projectDir;
-            }).overrideAttrs(final: prev: { nativeBuildInputs = [ python.pkgs.poetry ]; });
+            default = packages."${name}-venv".env;
             poetry = (python.withPackages (pyPkgs: [ pyPkgs.poetry ])).env;
         };
 
