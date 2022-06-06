@@ -12,6 +12,3 @@ Use the following commands to get started:
 # Open the workspace file
 code python-nixos-nspawn.code-workspace
 ```
-
-TODO add all dev deps
-TODO add .flake8 etc

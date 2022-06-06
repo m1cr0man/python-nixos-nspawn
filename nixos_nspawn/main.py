@@ -3,6 +3,7 @@ import sys
 
 def main(args: list[str]) -> int:
     import rich
+
     print("Hello world!")
     return 0
 
