@@ -43,9 +43,9 @@
                 };
             };
             "${name}" = packages.default;
-            "${name}-venv" = (p2n.mkPoetryEnv {
+            "${name}-venv" = p2n.mkPoetryEnv {
                 inherit python projectDir;
-            }).overrideAttrs (final: prev: { nativeBuildInputs = prev.nativeBuildInputs ++ [ python.pkgs.poetry ]; });
+            };
         };
 
         apps = {

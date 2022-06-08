@@ -40,7 +40,10 @@
 		"files.exclude": {
 			"**/__pycache__": true
 		},
-		"nixEnvSelector.nixFile": "${workspaceRoot}/shell.nix"
+		"terminal.integrated.copyOnSelection": true,
+		"terminal.integrated.env.linux": {
+			"PATH": "${workspaceFolder}/.venv/bin:${env:PATH}",
+		}
 	},
 	"launch": {
 		"configurations": [
