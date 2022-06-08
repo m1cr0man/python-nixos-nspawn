@@ -40,9 +40,16 @@
 			"**/__pycache__": true
 		},
 		"terminal.integrated.copyOnSelection": true,
-		"terminal.integrated.env.linux": {
-			"PATH": "${workspaceFolder}/.venv/bin:${env:PATH}",
-		}
+		"terminal.integrated.profiles.linux": {
+			"nix-develop": {
+				"path": "nix",
+				"args": [
+					"develop"
+				],
+				"icon": "terminal-linux"
+			},
+		},
+		"terminal.integrated.defaultProfile.linux": "nix-develop",
 	},
 	"launch": {
 		"configurations": [
