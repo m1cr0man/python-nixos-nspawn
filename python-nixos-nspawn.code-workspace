@@ -8,7 +8,6 @@
 		"editor.formatOnSave": true,
 		"files.insertFinalNewline": true,
 		"files.trimTrailingWhitespace": true,
-		"python.sortImports.path": "isort",
 		"python.formatting.provider": "black",
 		"python.languageServer": "Pylance",
 		"python.defaultInterpreterPath": "${workspaceRoot}/.venv/bin/python3",
