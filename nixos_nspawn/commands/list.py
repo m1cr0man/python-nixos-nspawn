@@ -1,25 +1,26 @@
-from argparse import ArgumentParser
-
-import rich
-
 from ..models import Container
-from ._command import Command
+from ._command import BaseCommand, Command
+
+# TODO other stuff
 
 
-class ListCommand(Command):
-    @classmethod
-    @property
-    def name(cls) -> str:
-        return "list"
+class ListCommand(BaseCommand, Command):
+    """List containers on the system"""
 
-    @classmethod
-    def register_arguments(cls, parser: ArgumentParser) -> None:
-        # No extra arguments to register here
-        return
+    name = "list"
+    supports_json = True
 
-    def run(self) -> None:
+    def run(self) -> int:
         unit_files = list(self.unit_file_dir.glob("*.nspawn"))
-        rich.print(f"Showing {len(unit_files)} containers:")
+        results: list[dict] = []
+
+        self._rprint(f"Showing {len(unit_files)} containers:")
+
         for unit_file in unit_files:
             container = Container.from_unit_file(unit_file)
-            rich.print(container.render())
+            results.append(container.to_dict())
+            self._rprint(container.render())
+
+        self._jprint(results)
+
+        return 0

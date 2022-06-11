@@ -1,35 +1,67 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from argparse import ArgumentParser, Namespace
+from json import dumps
 from pathlib import Path
+from typing import Any, ClassVar, Protocol
+
+import rich
 
 
-class Command(ABC):
-    """Basic command"""
+class Command(Protocol):
+    """Protocol definition for a Command"""
+
+    """Command line argument name for this Command"""
+    name: ClassVar[str]
+
+    parsed_args: Namespace
+    unit_file_dir: Path
 
     def __init__(self, parsed_args: Namespace, unit_file_dir: Path) -> None:
-        super(Command, self).__init__()
-        self.parsed_args = parsed_args
-        self.unit_file_dir = unit_file_dir
-
-    @property
-    @classmethod
-    @abstractmethod
-    def name(cls) -> str:
-        raise NotImplementedError(
-            f"{cls.__name__} does not implement 'name' property",
-        )
+        ...
 
     @classmethod
     @abstractmethod
     def register_arguments(cls, parser: ArgumentParser) -> None:
-        raise NotImplementedError(
-            f"{cls.__name__} does not implement 'register_arguments' method",
-        )
+        """Adds any optional or required arguments for this Command to the given parser"""
+        ...
 
     @abstractmethod
-    def run(
-        self,
-    ) -> int:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement 'run' method",
-        )
+    def run(self) -> int:
+        """The business logic of this Command"""
+        ...
+
+
+class BaseCommand(object):
+    """Utilities shared by all Commands"""
+
+    """Whether to provide a --json output toggle for this Command"""
+    supports_json: ClassVar[bool] = False
+
+    def __init__(self, parsed_args: Namespace, unit_file_dir: Path) -> None:
+        # The initializer for the commands must reside outside of
+        super(BaseCommand, self).__init__()
+        self.parsed_args = parsed_args
+        self.unit_file_dir = unit_file_dir
+
+    @classmethod
+    def register_arguments(cls, parser: ArgumentParser) -> None:
+        """Adds any optional or required arguments for this Command to the given parser"""
+        if cls.supports_json:
+            parser.add_argument(
+                "--json", help="Output in JSON format", action="store_true", default=False
+            )
+
+    @property
+    def _json(self) -> bool:
+        """True if JSON support is enabled for this Command and it is toggled ON"""
+        return self.supports_json and self.parsed_args.json
+
+    def _rprint(self, *vals: Any) -> None:  # noqa: ANN401
+        """Prints the given values with rich if the JSON flag is toggled OFF"""
+        if not self._json:
+            rich.print(*vals)
+
+    def _jprint(self, val: Any) -> None:  # noqa: ANN401
+        """Prints the given value as JSON if the JSON flag is toggled ON"""
+        if self._json:
+            print(dumps(val))

@@ -1,11 +1,16 @@
+from dataclasses import dataclass
 from pathlib import Path
 
+from ._printable import Printable
 
-class Container(object):
-    def __init__(self, unit_file: Path) -> None:
-        self.unit_file = unit_file
 
-        self.name = self.unit_file.name[: -len(".nspawn")]
+@dataclass
+class Container(Printable):
+    unit_file: Path
+
+    @property
+    def name(self) -> str:
+        return self.unit_file.name[: -len(".nspawn")]
 
     @classmethod
     def from_unit_file(cls, unit_file: Path) -> "Container":

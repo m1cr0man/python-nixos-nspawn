@@ -16,7 +16,7 @@ def main(args: list[str]) -> int:
 
     parser.add_argument(
         "--unit-file-dir",
-        help="Directory where Systemd nspawn container unit files are stored.",
+        help="Directory where Systemd nspawn container unit files are stored",
         type=Path,
         default=Path("/etc/systemd/nspawn"),
     )
@@ -24,7 +24,9 @@ def main(args: list[str]) -> int:
 
     # Register all the commands
     for command in COMMANDS:
-        cmd_parser = subparsers.add_parser(command.name)
+        cmd_parser = subparsers.add_parser(
+            command.name, help=command.__doc__, description=command.__doc__
+        )
         cmd_parser.set_defaults(handler=command)
         command.register_arguments(cmd_parser)
 
