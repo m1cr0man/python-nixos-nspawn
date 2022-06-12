@@ -11,7 +11,7 @@ class ListCommand(BaseCommand, Command):
         containers = self.manager.list()
         results: list[dict] = []
 
-        self._rprint(f"Showing {len(containers)} containers:")
+        self._rprint(f"Showing [blue]{len(containers)}[/blue] containers:")
 
         for container in containers:
             results.append(container.to_dict())

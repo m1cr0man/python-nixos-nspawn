@@ -1,11 +1,13 @@
 from json import load
 from os import getenv
 from pathlib import Path
+from shutil import rmtree
 from typing import Any, Optional, Union
 
-from ..constants import MACHINE_STATE_DIR, NIX_PROFILE_DIR
+from ..constants import MACHINE_STATE_DIR, NIX_PROFILE_DIR, NSENTER_ARGS
 from ..utilities import SystemdUnitParser, run_command
 from ._printable import Printable
+from .nix_generation import NixGeneration
 
 
 class Container(Printable):
@@ -17,6 +19,7 @@ class Container(Printable):
 
         self.name = self.unit_file.name[: -len(".nspawn")]
 
+        self.__state_dir = MACHINE_STATE_DIR / self.name
         self.__profile_dir = NIX_PROFILE_DIR / self.name
         self.__nix_path = self.__profile_dir / "system"
         self.__network_unit_file = (
@@ -50,6 +53,10 @@ class Container(Printable):
                 self.__profile_data = load(profile_data_fd)
 
         return self.__profile_data
+
+    @property
+    def activation_strategy(self) -> str:
+        return self.profile_data["activation"]["strategy"]
 
     @classmethod
     def from_unit_file(cls, unit_file: Path) -> "Container":
@@ -149,7 +156,7 @@ class Container(Printable):
         exec_section["Boot"] = "false"
         exec_section["Parameters"] = str(self.__nix_path / "init")
         exec_section["PrivateUsers"] = "yes"
-        exec_section["X-ActivationStrategy"] = profile_data["activation"]["strategy"]
+        exec_section["X-ActivationStrategy"] = self.activation_strategy
         exec_section["X-Imperative"] = "1"
 
         if profile_data.get("ephemeral"):
@@ -184,6 +191,59 @@ class Container(Printable):
             unit_parser.write(unit_fd, space_around_delimiters=False)
 
     def create_state_directories(self) -> None:
-        etc = MACHINE_STATE_DIR / self.name / "etc"
+        etc = self.__state_dir / "etc"
         etc.mkdir(parents=True, exist_ok=True)
         (etc / "os-release").touch(exist_ok=True)
+
+    def get_runtime_property(self, key: str) -> str:
+        rc, stdout = run_command(
+            ["machinectl", "show", self.name, "--property", key, "--value"], capture_stdout=True
+        )
+        return stdout
+
+    def run_command(self, args: list[str], capture_stdout: bool = False) -> tuple[int, str]:
+        """Runs a command within the container"""
+        leader_pid = self.get_runtime_property("Leader").strip()
+        return run_command(
+            ["nsenter", "-t", leader_pid, *NSENTER_ARGS, "--", *args], capture_stdout=capture_stdout
+        )
+
+    def start(self) -> None:
+        run_command(["machinectl", "start", self.name])
+
+    def reboot(self) -> None:
+        run_command(["machinectl", "reboot", self.name])
+
+    def poweroff(self) -> None:
+        run_command(["machinectl", "poweroff", self.name])
+
+    def reload(self) -> None:
+        switcher = self.__nix_path / "bin" / "switch-to-configuration"
+        self.run_command([str(switcher), "test"])
+
+    def rollback(self) -> None:
+        run_command(["nix-env", "-p", str(self.__nix_path), "--rollback"])
+
+    def get_generations(self) -> list[NixGeneration]:
+        rc, stdout = run_command(
+            ["nix-env", "-p", str(self.__nix_path), "--list-generations"], capture_stdout=True
+        )
+        return [NixGeneration.from_list_output(gen) for gen in stdout.split("\n")]
+
+    def activate_config(self, strategy: Optional[str] = None) -> None:
+        if strategy is None:
+            strategy = self.activation_strategy
+
+        if strategy.lower().strip() == "restart":
+            self.reboot()
+        else:
+            self.reload()
+
+    def destroy(self) -> None:
+        """Removes all files associated with the contanier."""
+        self.unit_file.unlink(missing_ok=True)
+        self.__network_unit_file.unlink(missing_ok=True)
+        if self.__profile_dir.exists():
+            rmtree(str(self.__profile_dir))
+        if self.__state_dir.exists():
+            rmtree(str(self.__state_dir))

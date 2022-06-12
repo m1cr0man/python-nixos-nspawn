@@ -38,6 +38,9 @@ class BaseCommand(object):
     """Whether to provide a --json output toggle for this Command"""
     supports_json: ClassVar[bool] = False
 
+    """Whether to require a name positional argument for this Command"""
+    needs_name: ClassVar[bool] = False
+
     def __init__(self, parsed_args: Namespace, manager: NixosNspawnManager) -> None:
         # The initializer for the commands must reside outside of
         super(BaseCommand, self).__init__()
@@ -51,6 +54,8 @@ class BaseCommand(object):
             parser.add_argument(
                 "--json", help="Output in JSON format", action="store_true", default=False
             )
+        if cls.needs_name:
+            parser.add_argument("name", help="Container name")
 
     @property
     def _json(self) -> bool:

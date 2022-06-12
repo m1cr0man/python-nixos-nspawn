@@ -5,7 +5,12 @@ from pathlib import Path
 from nixos_nspawn import commands, constants, manager, metadata
 
 COMMANDS = [
+    commands.CreateCommand,
     commands.ListCommand,
+    commands.ListGenerationsCommand,
+    commands.RemoveCommand,
+    commands.RollbackCommand,
+    commands.UpdateCommand,
 ]
 
 

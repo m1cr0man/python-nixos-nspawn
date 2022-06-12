@@ -43,9 +43,10 @@ class SystemdUnitParser(ConfigParser):
     ) -> None:
         # Overridden to add support for multi-value fields.
         # Note: Removed interpolator support, as it's unneeded.
-        fp.write("[{}]\n".format(section_name))
+        fp.write(f"[{section_name}]\n")
 
         def write_value(k: str, val: str) -> None:
+            # Indent multiline values for correct parsing
             val = str(val).replace("\n", "\n\t")
             fp.write(f"{k}{delimiter}{value}\n")
 
@@ -53,10 +54,10 @@ class SystemdUnitParser(ConfigParser):
             if isinstance(value, list):
                 for subval in value:
                     write_value(key, subval)
-                continue
             elif value is None:
                 write_value(key, "")
             else:
                 write_value(key, value)
 
-        fp.write("\n")
+        # Blank line between sections
+        fp.write("\n\n")
