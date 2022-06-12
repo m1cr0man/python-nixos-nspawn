@@ -34,7 +34,7 @@ class Container(Printable):
     @property
     def _unit_parser(self) -> SystemdUnitParser:
         # Defined as a property since we create Container objects
-        # duration new container creation before the unit_file exists.
+        # during new container creation before the unit_file exists.
         if not self.__unit_parser:
             parser = SystemdUnitParser()
             parser.read(self.unit_file)

@@ -22,7 +22,6 @@ class UpdateCommand(BaseCommand, Command):
                 "Activation strategy to use to apply the update to the container."
                 " Leave blank to use strategy configured in the container's configuration."
             ),
-            type=str,
             choices=["reload", "restart"],
         )
         return super().register_arguments(parser)
