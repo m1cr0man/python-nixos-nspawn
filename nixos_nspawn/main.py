@@ -2,7 +2,7 @@ import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
-from nixos_nspawn import commands, metadata
+from nixos_nspawn import commands, constants, manager, metadata
 
 COMMANDS = [
     commands.ListCommand,
@@ -18,7 +18,7 @@ def main(args: list[str]) -> int:
         "--unit-file-dir",
         help="Directory where Systemd nspawn container unit files are stored",
         type=Path,
-        default=Path("/etc/systemd/nspawn"),
+        default=constants.DEFAULT_NSPAWN_DIR,
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to execute", required=True)
 
@@ -32,10 +32,13 @@ def main(args: list[str]) -> int:
 
     parsed_args = parser.parse_args(args[1:])
 
+    # Prepare the manager
+    mgr = manager.NixosNspawnManager(parsed_args.unit_file_dir)
+
     # Run the command that was selected
     handler: type[commands.Command] = parsed_args.handler
 
-    return handler(parsed_args, parsed_args.unit_file_dir).run()
+    return handler(parsed_args, mgr).run()
 
 
 def main_with_args() -> int:

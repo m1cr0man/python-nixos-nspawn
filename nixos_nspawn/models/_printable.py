@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from dataclasses import asdict
 from typing import Protocol
 
 
@@ -8,9 +7,8 @@ class Printable(Protocol):
 
     @abstractmethod
     def render(self) -> str:
-        raise NotImplementedError(
-            f"{type(self).__name__} does not implement 'name' property",
-        )
+        """Generate a [rich] text human readable representation of this object"""
 
+    @abstractmethod
     def to_dict(self) -> dict:
-        return asdict(self)
+        """Transforms the object to a dictionary"""

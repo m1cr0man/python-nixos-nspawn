@@ -1,10 +1,11 @@
 from abc import abstractmethod
 from argparse import ArgumentParser, Namespace
 from json import dumps
-from pathlib import Path
 from typing import Any, ClassVar, Protocol
 
 import rich
+
+from ..manager import NixosNspawnManager
 
 
 class Command(Protocol):
@@ -14,9 +15,9 @@ class Command(Protocol):
     name: ClassVar[str]
 
     parsed_args: Namespace
-    unit_file_dir: Path
+    manager: NixosNspawnManager
 
-    def __init__(self, parsed_args: Namespace, unit_file_dir: Path) -> None:
+    def __init__(self, parsed_args: Namespace, manager: NixosNspawnManager) -> None:
         ...
 
     @classmethod
@@ -37,11 +38,11 @@ class BaseCommand(object):
     """Whether to provide a --json output toggle for this Command"""
     supports_json: ClassVar[bool] = False
 
-    def __init__(self, parsed_args: Namespace, unit_file_dir: Path) -> None:
+    def __init__(self, parsed_args: Namespace, manager: NixosNspawnManager) -> None:
         # The initializer for the commands must reside outside of
         super(BaseCommand, self).__init__()
         self.parsed_args = parsed_args
-        self.unit_file_dir = unit_file_dir
+        self.manager = manager
 
     @classmethod
     def register_arguments(cls, parser: ArgumentParser) -> None:
