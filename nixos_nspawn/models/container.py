@@ -1,4 +1,5 @@
 from json import load
+from logging import getLogger
 from os import getenv
 from pathlib import Path
 from shutil import rmtree
@@ -10,6 +11,10 @@ from ._printable import Printable
 from .nix_generation import NixGeneration
 
 
+class ContainerError(BaseException):
+    ...
+
+
 class Container(Printable):
     unit_file: Path
     __profile_data: Optional[dict]
@@ -19,6 +24,7 @@ class Container(Printable):
 
         self.name = self.unit_file.name[: -len(".nspawn")]
 
+        self.__logger = getLogger(f"nixos_nspawn.container.{self.name}")
         self.__state_dir = MACHINE_STATE_DIR / self.name
         self.__profile_dir = NIX_PROFILE_DIR / self.name
         self.__nix_path = self.__profile_dir / "system"
@@ -37,6 +43,7 @@ class Container(Printable):
         # during new container creation before the unit_file exists.
         if not self.__unit_parser:
             parser = SystemdUnitParser()
+            self.__logger.debug("Parsing %s", self.unit_file)
             parser.read(self.unit_file)
             self.__unit_parser = parser
 
@@ -49,6 +56,7 @@ class Container(Printable):
     @property
     def profile_data(self) -> dict:
         if not self.__profile_data:
+            self.__logger.debug("Loading %s", self.__nix_path / "data")
             with (self.__nix_path / "data").open() as profile_data_fd:
                 self.__profile_data = load(profile_data_fd)
 
@@ -84,12 +92,13 @@ class Container(Printable):
         if not update:
             # If it already exists, that's a problem. This is a new container.
             if self.__profile_dir.exists():
-                raise Exception(
+                raise ContainerError(
                     f"Profile for {self.name} already exists!"
                     " Perhaps some dirty state? Try removing with the 'remove' command."
                 )
             self.__profile_dir.mkdir(mode=0o755, parents=True)
 
+        self.__logger.info("Building configuration from [bold]%s[/bold]", self.__nix_path / "data")
         eval_code = getenv("NIXOS_NSPAWN_EVAL", "@eval@")
         args = [
             "nix-env",
@@ -113,6 +122,7 @@ class Container(Printable):
         return self.__nix_path
 
     def _write_network_unit_file(self) -> None:
+        self.__logger.debug("Writing network unit file")
         unit_parser = SystemdUnitParser()
         profile_data = self.profile_data
 
@@ -148,6 +158,7 @@ class Container(Printable):
             unit_parser.write(unit_fd, space_around_delimiters=False)
 
     def write_nspawn_unit_file(self) -> None:
+        self.__logger.info("Writing nspawn unit file")
         unit_parser = SystemdUnitParser()
         profile_data = self.profile_data
 
@@ -191,37 +202,46 @@ class Container(Printable):
             unit_parser.write(unit_fd, space_around_delimiters=False)
 
     def create_state_directories(self) -> None:
+        self.__logger.debug("Creating state directories")
         etc = self.__state_dir / "etc"
         etc.mkdir(parents=True, exist_ok=True)
         (etc / "os-release").touch(exist_ok=True)
 
     def get_runtime_property(self, key: str) -> str:
+        self.__logger.debug("Reading runtime property '%s'", key)
         rc, stdout = run_command(
             ["machinectl", "show", self.name, "--property", key, "--value"], capture_stdout=True
         )
+        self.__logger.debug("Value of runtime property %s: '%s'", key, stdout)
         return stdout
 
     def run_command(self, args: list[str], capture_stdout: bool = False) -> tuple[int, str]:
         """Runs a command within the container"""
         leader_pid = self.get_runtime_property("Leader").strip()
+        self.__logger.info("Running command '%s'", " ".join(args))
         return run_command(
             ["nsenter", "-t", leader_pid, *NSENTER_ARGS, "--", *args], capture_stdout=capture_stdout
         )
 
     def start(self) -> None:
+        self.__logger.info("Starting")
         run_command(["machinectl", "start", self.name])
 
     def reboot(self) -> None:
+        self.__logger.info("Rebooting")
         run_command(["machinectl", "reboot", self.name])
 
     def poweroff(self) -> None:
+        self.__logger.info("Powering off")
         run_command(["machinectl", "poweroff", self.name])
 
     def reload(self) -> None:
+        self.__logger.info("Reloading")
         switcher = self.__nix_path / "bin" / "switch-to-configuration"
         self.run_command([str(switcher), "test"])
 
     def rollback(self) -> None:
+        self.__logger.info("Rolling back")
         run_command(["nix-env", "-p", str(self.__nix_path), "--rollback"])
 
     def get_generations(self) -> list[NixGeneration]:
@@ -231,9 +251,11 @@ class Container(Printable):
         return [NixGeneration.from_list_output(gen) for gen in stdout.split("\n")]
 
     def activate_config(self, strategy: Optional[str] = None) -> None:
+        self.__logger.info("Activating configuration. Strategy override: %s", strategy)
         if strategy is None:
             strategy = self.activation_strategy
 
+        self.__logger.debug("Using activation strategy [bold]%s[/bold]", strategy)
         if strategy.lower().strip() == "restart":
             self.reboot()
         else:
@@ -241,6 +263,7 @@ class Container(Printable):
 
     def destroy(self) -> None:
         """Removes all files associated with the contanier."""
+        self.__logger.info("Destroying files")
         self.unit_file.unlink(missing_ok=True)
         self.__network_unit_file.unlink(missing_ok=True)
         if self.__profile_dir.exists():

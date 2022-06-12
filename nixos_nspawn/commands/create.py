@@ -14,8 +14,8 @@ class CreateCommand(BaseCommand, Command):
 
     @classmethod
     def register_arguments(cls, parser: ArgumentParser) -> None:
+        super().register_arguments(parser)
         parser.add_argument("config", help="Container configuration file", type=Path)
-        return super().register_arguments(parser)
 
     def run(self) -> int:
         name: str = self.parsed_args.name

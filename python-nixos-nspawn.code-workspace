@@ -60,7 +60,12 @@
 				"type": "python",
 				"request": "launch",
 				"module": "nixos_nspawn",
-				"args": []
+				"args": [
+					"-v",
+					"create",
+					"test",
+					"wat"
+				]
 			},
 			{
 				"name": "Python: Current file",

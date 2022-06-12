@@ -15,6 +15,7 @@ class UpdateCommand(BaseCommand, Command):
 
     @classmethod
     def register_arguments(cls, parser: ArgumentParser) -> None:
+        super().register_arguments(parser)
         parser.add_argument("config", help="Container configuration file", type=Path)
         parser.add_argument(
             "--strategy",
@@ -24,7 +25,6 @@ class UpdateCommand(BaseCommand, Command):
             ),
             choices=["reload", "restart"],
         )
-        return super().register_arguments(parser)
 
     def run(self) -> int:
         name: str = self.parsed_args.name
