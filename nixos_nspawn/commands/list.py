@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 
+from ..models import Container
 from ._command import BaseCommand, Command
 
 
@@ -22,10 +23,7 @@ class ListCommand(BaseCommand, Command):
     def run(self) -> int:
         container_type = self.parsed_args.type
         containers = self.manager.list()
-        total = len(containers)
-        results: list[dict] = []
-
-        self._rprint(f"Showing {len(containers)} of {total} containers:")
+        results: list[Container] = []
 
         for container in containers:
             if (
@@ -33,9 +31,13 @@ class ListCommand(BaseCommand, Command):
                 or (container_type == "imperative" and container.is_imperative)
                 or (container_type == "declarative" and not container.is_imperative)
             ):
-                results.append(container.to_dict())
-                self._rprint(container.render())
+                results.append(container)
 
-        self._jprint(results)
+        self._rprint(f"Showing {len(results)} of {len(containers)} containers:")
+
+        for container in results:
+            self._rprint(container.render())
+
+        self._jprint([c.to_dict() for c in results])
 
         return 0

@@ -49,7 +49,7 @@
 				"icon": "terminal-linux"
 			},
 		},
-		"terminal.integrated.defaultProfile.linux": "nix-develop",
+		"terminal.integrated.defaultProfile.linux": "bash",
 	},
 	"launch": {
 		"configurations": [
@@ -62,9 +62,7 @@
 				"module": "nixos_nspawn",
 				"args": [
 					"-v",
-					"create",
-					"test",
-					"wat"
+					"list",
 				]
 			},
 			{

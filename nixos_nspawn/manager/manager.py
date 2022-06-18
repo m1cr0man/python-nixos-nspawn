@@ -53,13 +53,18 @@ class NixosNspawnManager(object):
 
         self.__logger.debug("Creating container [bold]%s[/bold] with config '%s'", name, config)
 
-        container.build_nixos_config(config, show_trace=self.show_trace)
-        self._check_network_zone(container)
-        container.write_nspawn_unit_file()
-        container.create_state_directories()
-        sync()
+        try:
+            container.build_nixos_config(config, show_trace=self.show_trace)
+            self._check_network_zone(container)
+            container.write_nspawn_unit_file()
+            container.create_state_directories()
+            sync()
+            container.start()
 
-        container.start()
+        except Exception as err:
+            # If the build fails, ensure nothing is left behind.
+            container.destroy()
+            raise err
 
         self.__containers.append(container)
 
@@ -101,7 +106,8 @@ class NixosNspawnManager(object):
             container.name,
         )
 
-        container.poweroff()
+        if container.get_runtime_property("State", ignore_error=True):
+            container.poweroff()
         container.destroy()
 
         self.__containers.remove(container)

@@ -1,11 +1,11 @@
 [tool.poetry]
 name = "nixos_nspawn"
-version = "0.1.0"
+version = "0.0.2"
 description = "NixOS Nspawn container imperative management tool"
 authors = ["Lucas Savva <lucas@m1cr0man.com>"]
 license = "MIT"
 readme = "README.md"
-include = ["nixos_nspawn/version.txt"]
+include = ["nixos_nspawn/version.txt", "nixos_nspawn/eval-container.nix"]
 
 [tool.poetry.scripts]
 nixos-nspawn = "nixos_nspawn:main_with_args"

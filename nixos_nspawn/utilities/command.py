@@ -2,9 +2,10 @@ from logging import getLogger
 from subprocess import PIPE, Popen
 
 
-class CommandError(BaseException):
-    def __init__(self, command: list[str], *args: object) -> None:
+class CommandError(Exception):
+    def __init__(self, command: list[str], exit_code: int, *args: object) -> None:
         self.command = command
+        self.exit_code = exit_code
         super().__init__(*args)
 
 
@@ -23,6 +24,10 @@ def run_command(args: list[str], capture_stdout: bool = False) -> tuple[int, str
     logger.debug("Command finished with code %d and stdout '%s'", exit_code, stdout)
 
     if exit_code > 0:
-        raise Exception(f"Command '{' '.join(args)}' failed with exit code {exit_code}! {stdout}")
+        raise CommandError(
+            args,
+            exit_code,
+            stdout
+        )
 
     return (exit_code, stdout)

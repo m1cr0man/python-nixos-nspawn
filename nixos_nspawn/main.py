@@ -19,9 +19,7 @@ COMMANDS = [
 
 
 def main(args: list[str]) -> int:
-    parser = ArgumentParser(
-        prog=args[0], description=f"NixOS imperative container manager v{metadata.version}"
-    )
+    parser = ArgumentParser(description=f"NixOS imperative container manager v{metadata.version}")
 
     parser.add_argument(
         "--unit-file-dir",
@@ -61,7 +59,7 @@ def main(args: list[str]) -> int:
     install_rich(max_frames=20 if parsed_args.verbose else 3)
 
     # Prepare the manager
-    mgr = manager.NixosNspawnManager(parsed_args.unit_file_dir)
+    mgr = manager.NixosNspawnManager(parsed_args.unit_file_dir, show_trace=parsed_args.verbose)
 
     # Run the command that was selected
     handler: type[commands.Command] = parsed_args.handler
@@ -74,8 +72,9 @@ def main(args: list[str]) -> int:
         return 10
     except utilities.CommandError as cmd_err:
         logger.fatal(
-            "[red]Failed to run command '%s': %s[/red]",
+            "[red]Command '%s' failed with exit code %d\n%s[/red]",
             " ".join(cmd_err.command),
+            cmd_err.exit_code,
             cmd_err,
             exc_info=parsed_args.verbose,
         )
