@@ -228,12 +228,13 @@ class Container(Printable):
         exec_section = unit_parser["Exec"]
         exec_section["Boot"] = "false"
         exec_section["Parameters"] = str(self.__nix_path / "init")
-        exec_section["PrivateUsers"] = "yes"
+        exec_section["PrivateUsers"] = "pick"
         exec_section["X-ActivationStrategy"] = self.activation_strategy
         exec_section["X-Imperative"] = "1"
 
         if profile_data.get("ephemeral"):
             exec_section["Ephemeral"] = "true"
+            exec_section["LinkJournal"] = "auto"
         else:
             exec_section["LinkJournal"] = "guest"
 
@@ -244,7 +245,7 @@ class Container(Printable):
         files_section["BindReadOnly"] = "/nix/var/nix/db"
         files_section["BindReadOnly"] = "/nix/var/nix/profiles"
         files_section["BindReadOnly"] = str(NIX_PROFILE_DIR)
-        files_section["PrivateUsersChown"] = "yes"
+        files_section["PrivateUsersOwnership"] = "auto"
 
         # [Network]
         unit_parser.add_section("Network")
