@@ -228,7 +228,7 @@ class Container(Printable):
         exec_section = unit_parser["Exec"]
         exec_section["Boot"] = "false"
         exec_section["Parameters"] = str(self.__nix_path / "init")
-        exec_section["PrivateUsers"] = "pick"
+        exec_section["PrivateUsers"] = "yes"
         exec_section["X-ActivationStrategy"] = self.activation_strategy
         exec_section["X-Imperative"] = "1"
 
@@ -246,6 +246,9 @@ class Container(Printable):
         files_section["BindReadOnly"] = "/nix/var/nix/profiles"
         files_section["BindReadOnly"] = str(NIX_PROFILE_DIR)
         files_section["PrivateUsersOwnership"] = "auto"
+
+        for mountpoint in profile_data.get("bindMounts", []):
+            files_section["Bind"] = mountpoint
 
         # [Network]
         unit_parser.add_section("Network")
