@@ -12,8 +12,7 @@ class SystemdSettings(dict):
             # to iterate + join each list into a single string.
             # With systemd configs, we can immediately turn these first lines
             # into the actual values. Then we can store actual multi-value keys
-            # in a list. Using a for loop just incase there's
-            # multiple items.
+            # in a list.
             value = value[0]
 
         if key in self:

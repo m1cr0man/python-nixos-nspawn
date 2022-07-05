@@ -8,6 +8,7 @@ from typing import Any, Optional, Union
 
 from ..constants import (
     DEFAULT_EVAL_SCRIPT,
+    FLAKE_KEY,
     MACHINE_STATE_DIR,
     NIX_PROFILE_DIR,
     NSENTER_ARGS,
@@ -98,19 +99,22 @@ class Container(Printable):
             )
         )
 
+    def _create_profile_directory(self) -> None:
+        # If it already exists, that's a problem. This is a new container.
+        if self.__profile_dir.exists():
+            raise ContainerError(
+                f"Profile for {self.name} already exists!"
+                " Perhaps some dirty state? Try removing with the 'remove' command."
+            )
+        self.__profile_dir.mkdir(mode=0o755, parents=True)
+        self.__profile_dir.chmod(mode=0o755)
+
     def build_nixos_config(
         self, config: Path, update: bool = False, show_trace: bool = False
     ) -> Path:
         # Create the profile directory if necessary
         if not update:
-            # If it already exists, that's a problem. This is a new container.
-            if self.__profile_dir.exists():
-                raise ContainerError(
-                    f"Profile for {self.name} already exists!"
-                    " Perhaps some dirty state? Try removing with the 'remove' command."
-                )
-            self.__profile_dir.mkdir(mode=0o755, parents=True)
-            self.__profile_dir.chmod(mode=0o755)
+            self._create_profile_directory()
 
         self.__logger.info("Building configuration from '%s'", config)
         eval_code = getenv("NIXOS_NSPAWN_EVAL", str(DEFAULT_EVAL_SCRIPT))
@@ -129,6 +133,39 @@ class Container(Printable):
             str(config),
             "--set",
         ]
+        if show_trace:
+            args.append("--show-trace")
+
+        run_command(args)
+
+        return self.__nix_path
+
+    def build_flake_config(
+        self, flake: str, update: bool = False, show_trace: bool = False
+    ) -> Path:
+        # Create the profile directory if necessary
+        if not update:
+            self._create_profile_directory()
+
+        # Same thing as nixos-rebuild. Prepend our own key in the flake.
+        flake_split = flake.split("#")
+        if len(flake_split) != 2:
+            raise ContainerError(f"'{flake}' is not a valid flake path.")
+
+        flake_src, flake_attr = flake_split
+        if FLAKE_KEY not in flake_attr:
+            flake_attr = f"{FLAKE_KEY}.{flake_attr}"
+
+        self.__logger.info("Building configuration from flake %s", flake)
+        args = [
+            "nix",
+            "build",
+            "--no-link",
+            "--profile",
+            str(self.__nix_path),
+            f"{flake_src}#{flake_attr}",
+        ]
+
         if show_trace:
             args.append("--show-trace")
 
@@ -220,6 +257,9 @@ class Container(Printable):
         if zone := profile_data.get("zone"):
             network_section["Zone"] = zone
 
+        if bridge := profile_data.get("bridge"):
+            network_section["Bridge"] = bridge
+
         if network and not zone:
             self._write_network_unit_file()
 
@@ -308,6 +348,10 @@ class Container(Printable):
         if self.__profile_dir.exists():
             rmtree(str(self.__profile_dir))
         if self.__state_dir.exists():
+            # Ensure /var/empty can be deleted by removing the immutable bit
+            empty_dir = self.__state_dir / "var" / "empty"
+            if empty_dir.exists():
+                run_command(["chattr", "-i", str(empty_dir)])
             rmtree(str(self.__state_dir))
         self.__network_unit_file.unlink(missing_ok=True)
         self.unit_file.unlink(missing_ok=True)

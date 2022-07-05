@@ -4,6 +4,7 @@ from typing import Optional
 
 from ..constants import RC_CONTAINER_MISSING
 from ._command import BaseCommand, Command
+from ._shared import check_config_or_flake
 
 
 class UpdateCommand(BaseCommand, Command):
@@ -16,7 +17,8 @@ class UpdateCommand(BaseCommand, Command):
     @classmethod
     def register_arguments(cls, parser: ArgumentParser) -> None:
         super().register_arguments(parser)
-        parser.add_argument("config", help="Container configuration file", type=Path)
+        parser.add_argument("--config", help="Container configuration file", type=Path)
+        parser.add_argument("--flake", help="Container configuration flake path", type=str)
         parser.add_argument(
             "--strategy",
             help=(
@@ -28,8 +30,12 @@ class UpdateCommand(BaseCommand, Command):
 
     def run(self) -> int:
         name: str = self.parsed_args.name
-        config: Path = self.parsed_args.config
         strategy: Optional[str] = self.parsed_args.strategy
+        config: Optional[Path] = self.parsed_args.config
+        flake: Optional[str] = self.parsed_args.flake
+
+        if rc := check_config_or_flake(config, flake):
+            return rc
 
         container = self.manager.get(name)
 
@@ -38,7 +44,7 @@ class UpdateCommand(BaseCommand, Command):
             # Distinguishable return code from other exceptions
             return RC_CONTAINER_MISSING
 
-        self.manager.update(container=container, config=config, activation_strategy=strategy)
+        self.manager.update(container=container, config=config, flake=flake, activation_strategy=strategy)
 
         self._jprint(container.to_dict())
         self._rprint(

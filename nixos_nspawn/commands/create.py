@@ -1,8 +1,10 @@
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import Optional
 
 from ..constants import RC_CONTAINER_MISSING
 from ._command import BaseCommand, Command
+from ._shared import check_config_or_flake
 
 
 class CreateCommand(BaseCommand, Command):
@@ -15,14 +17,19 @@ class CreateCommand(BaseCommand, Command):
     @classmethod
     def register_arguments(cls, parser: ArgumentParser) -> None:
         super().register_arguments(parser)
-        parser.add_argument("config", help="Container configuration file", type=Path)
+        parser.add_argument("--config", help="Container configuration file", type=Path)
+        parser.add_argument("--flake", help="Container configuration flake path", type=str)
 
     def run(self) -> int:
         name: str = self.parsed_args.name
-        config: Path = self.parsed_args.config
+        config: Optional[Path] = self.parsed_args.config
+        flake: Optional[str] = self.parsed_args.flake
+
+        if rc := check_config_or_flake(config, flake):
+            return rc
 
         try:
-            container = self.manager.create(name=name, config=config)
+            container = self.manager.create(name=name, config=config, flake=flake)
         except ValueError:
             self._rprint(f"[red]Container [bold]{name}[/bold] already exists![/red]")
             # Distinguishable return code from other exceptions

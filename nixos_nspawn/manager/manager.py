@@ -45,7 +45,9 @@ class NixosNspawnManager(object):
             self.__logger.debug("Could not find %s", zone_path)
             raise NixosNspawnManagerError(f"Virtual zone '{zone}' does not exist!")
 
-    def create(self, name: str, config: Path) -> Container:
+    def create(
+        self, name: str, config: Optional[Path] = None, flake: Optional[str] = None
+    ) -> Container:
         container = Container(unit_file=self.unit_file_dir / f"{name}.nspawn")
 
         if container in self.__containers:
@@ -54,7 +56,10 @@ class NixosNspawnManager(object):
         self.__logger.debug("Creating container [bold]%s[/bold] with config '%s'", name, config)
 
         try:
-            container.build_nixos_config(config, show_trace=self.show_trace)
+            if config:
+                container.build_nixos_config(config, show_trace=self.show_trace)
+            elif flake:
+                container.build_flake_config(flake, show_trace=self.show_trace)
             self._check_network_zone(container)
             container.write_nspawn_unit_file()
             container.create_state_directories()
@@ -71,7 +76,11 @@ class NixosNspawnManager(object):
         return container
 
     def update(
-        self, container: Container, config: Path, activation_strategy: Optional[str] = None
+        self,
+        container: Container,
+        config: Optional[Path] = None,
+        flake: Optional[str] = None,
+        activation_strategy: Optional[str] = None,
     ) -> None:
         self.__logger.debug(
             "Updating container [bold]%s[/bold] with config '%s'."
@@ -81,7 +90,10 @@ class NixosNspawnManager(object):
             activation_strategy,
         )
 
-        container.build_nixos_config(config, update=True, show_trace=self.show_trace)
+        if config:
+            container.build_nixos_config(config, update=True, show_trace=self.show_trace)
+        elif flake:
+            container.build_flake_config(flake, update=True, show_trace=self.show_trace)
         self._check_network_zone(container)
         container.write_nspawn_unit_file()
         sync()

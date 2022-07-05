@@ -6,10 +6,10 @@ let
   neededOptions = (module {
     pkgs = null;
     config = null;
-    lib = import (nixpkgs + "/lib");
+    inherit lib;
   }).options.nixos.containers;
 
-  dummy = (import (nixpkgs + "/lib")).evalModules {
+  dummy = lib.evalModules {
     modules = [
       (nixpkgs + "/nixos/modules/misc/assertions.nix")
       { options = (builtins.removeAttrs neededOptions [ "rendered" ]); }
@@ -29,19 +29,21 @@ let
             systemd.network = {
               networks."20-host0".address =
                 (if config.instances.imperative.network != null
-                  then config.instances.imperative.network.v6.static.containerPool
-                    ++ config.instances.imperative.network.v4.static.containerPool
-                  else []);
+                then config.instances.imperative.network.v6.static.containerPool
+                  ++ config.instances.imperative.network.v4.static.containerPool
+                else [ ]);
             };
           }
         ];
       })
       ({ config, ... }: {
         assertions = [
-          { assertion = config.instances.imperative.sharedNix;
+          {
+            assertion = config.instances.imperative.sharedNix;
             message = "Experimental 'sharedNix'-feature isn't supported for imperative containers!";
           }
-          { assertion = config.instances.imperative.activation.strategy != "dynamic";
+          {
+            assertion = config.instances.imperative.activation.strategy != "dynamic";
             message = "'dynamic' is currently not supported!";
           }
         ];
@@ -57,23 +59,24 @@ let
 
   assertions = with lib;
     let
-      failed =  filter
+      failed = filter
         (x: !x.assertion)
         dummy.config.assertions;
     in
-      if failed == [] then
-        null
-      else throw ''
+    if failed == [ ] then
+      null
+    else
+      throw ''
         Failed assertions:
 
         ${concatMapStringsSep "\n" (x: "* ${x.message}") failed}
       '';
 in
-  builtins.deepSeq assertions (pkgs.buildEnv {
-    name = "final";
-    paths = [
-      container.system
-      (pkgs.writeTextDir "data"
-        (builtins.toJSON (builtins.removeAttrs (dummy.config.instances.imperative) [ "system-config" ])))
-    ];
-  })
+builtins.deepSeq assertions (pkgs.buildEnv {
+  name = "final";
+  paths = [
+    container.system
+    (pkgs.writeTextDir "data"
+      (builtins.toJSON (builtins.removeAttrs (dummy.config.instances.imperative) [ "system-config" ])))
+  ];
+})
