@@ -15,3 +15,15 @@ code python-nixos-nspawn.code-workspace
 # Start a shell with dev dependencies available
 nix develop
 ```
+
+## Updating dependencies
+
+*Note*: Due to [a bug](https://github.com/nix-community/poetry2nix/issues/701#issuecomment-1229790215),
+ensure Poetry is >= 1.1.14.
+
+```bash
+# Update poetry lockfile
+nix run nixpkgs#poetry -- lock
+# Update flake lockfile
+nix flake update
+```

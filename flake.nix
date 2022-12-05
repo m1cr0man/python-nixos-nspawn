@@ -21,6 +21,14 @@
         flake8-annotations = pysuper.flake8-annotations.overridePythonAttrs (oldAttrs: {
           nativeBuildInputs = (oldAttrs.nativeBuildInputs or [ ]) ++ [ pysuper.poetry-core ];
         });
+        # flake8-assertive is missing setuptools when parsed by poetry2nix
+        flake8-assertive = pysuper.flake8-annotations.overridePythonAttrs (oldAttrs: {
+          nativeBuildInputs = (oldAttrs.nativeBuildInputs or [ ]) ++ [ pysuper.setuptools ];
+        });
+        # flake8-comprehensions is missing setuptools when parsed by poetry2nix
+        flake8-comprehensions = pysuper.flake8-annotations.overridePythonAttrs (oldAttrs: {
+          nativeBuildInputs = (oldAttrs.nativeBuildInputs or [ ]) ++ [ pysuper.setuptools ];
+        });
       });
     in
     {
@@ -36,7 +44,7 @@
             overrides = prev.poetry2nix.overrides.withDefaults customOverrides;
             # Skip installing dev-dependencies
             # https://github.com/nix-community/poetry2nix/issues/47
-            # doCheck = false;
+            doCheck = false;
             meta = {
               name = "${name}-${version}";
             };
