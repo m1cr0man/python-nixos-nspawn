@@ -3,6 +3,7 @@ from os import sync
 from pathlib import Path
 from typing import Optional
 
+from ..constants import DEFAULT_NSPAWN_DIR
 from ..models import Container
 
 
@@ -11,7 +12,7 @@ class NixosNspawnManagerError(BaseException):
 
 
 class NixosNspawnManager(object):
-    def __init__(self, unit_file_dir: Path, show_trace: bool = False) -> None:
+    def __init__(self, unit_file_dir: Path = DEFAULT_NSPAWN_DIR, show_trace: bool = False) -> None:
         self.unit_file_dir = unit_file_dir
         self.show_trace = show_trace
 
