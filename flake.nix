@@ -48,9 +48,24 @@
             meta = {
               name = "${name}-${version}";
             };
+            patches = [
+              # Need to compile in the system architecture.
+              # The Nix tools do the same thing.
+              (final.writeText
+                "nixos_nspawn_set_system.patch"
+                ''
+                  --- a/nixos_nspawn/system.txt
+                  +++ b/nixos_nspawn/system.txt
+                  @@ -1 +1 @@
+                  -x86_64-linux
+                  +${final.hostPlatform.system}
+                '')
+            ];
           };
         });
       };
+
+      lib = import "${self}/nixos_nspawn/nix/lib.nix";
 
     } // (flake-utils.lib.eachDefaultSystem (system:
       let
@@ -70,6 +85,7 @@
             inherit python projectDir;
             overrides = pkgs.poetry2nix.overrides.withDefaults customOverrides;
           };
+          sudo-nspawn = import ./nix/sudo-nspawn.nix { inherit (pkgs) sudo; };
         };
 
         apps = {
@@ -86,5 +102,18 @@
         defaultPackage = packages.default;
         defaultApp = apps.default;
         devShell = devShells.default;
+
+        # Example container
+        nixosContainers.example = self.lib.mkContainer {
+          inherit nixpkgs system;
+          name = "example";
+          modules = [
+            ({ pkgs, ... }: {
+              system.stateVersion = system;
+              environment.systemPackages = [ pkgs.python311 ];
+            })
+          ];
+        };
+
       }));
 }

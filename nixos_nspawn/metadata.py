@@ -1,4 +1,7 @@
-import os
+from pathlib import Path
 
-with open(os.path.join(os.path.dirname(__file__), "version.txt"), "r") as version_file:
+with (Path(__file__).parent / "version.txt").open("r") as version_file:
     version = version_file.readline().strip()
+
+with (Path(__file__).parent / "system.txt").open("r") as system_file:
+    system = system_file.readline().strip()

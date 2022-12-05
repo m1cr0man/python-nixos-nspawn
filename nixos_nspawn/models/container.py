@@ -13,6 +13,7 @@ from ..constants import (
     NIX_PROFILE_DIR,
     NSENTER_ARGS,
 )
+from ..metadata import system
 from ..utilities import CommandError, SystemdUnitParser, run_command
 from ._printable import Printable
 from .nix_generation import NixGeneration
@@ -141,7 +142,7 @@ class Container(Printable):
         return self.__nix_path
 
     def build_flake_config(
-        self, flake: str, update: bool = False, show_trace: bool = False
+        self, flake: str, system: str = system, update: bool = False, show_trace: bool = False
     ) -> Path:
         # Create the profile directory if necessary
         if not update:
@@ -154,7 +155,7 @@ class Container(Printable):
 
         flake_src, flake_attr = flake_split
         if FLAKE_KEY not in flake_attr:
-            flake_attr = f"{FLAKE_KEY}.{flake_attr}"
+            flake_attr = f"{FLAKE_KEY}.{system}.{flake_attr}"
 
         self.__logger.info("Building configuration from flake %s", flake)
         args = [
@@ -227,6 +228,7 @@ class Container(Printable):
         unit_parser.add_section("Exec")
         exec_section = unit_parser["Exec"]
         exec_section["Boot"] = "false"
+        exec_section["KillSignal"] = "SIGRTMIN+3"
         exec_section["Parameters"] = str(self.__nix_path / "init")
         exec_section["PrivateUsers"] = "yes"
         exec_section["X-ActivationStrategy"] = self.activation_strategy
@@ -288,7 +290,8 @@ class Container(Printable):
         self.__logger.debug("Reading runtime property '%s'", key)
         try:
             rc, stdout = run_command(
-                ["machinectl", "show", self.name, "--property", key, "--value"], capture_stdout=True
+                ["machinectl", "show", self.name, "--property", key, "--value"], capture_stdout=True,
+                capture_stderr=ignore_error
             )
             self.__logger.debug("Value of runtime property %s: '%s'", key, stdout)
             return stdout

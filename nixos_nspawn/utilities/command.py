@@ -9,12 +9,12 @@ class CommandError(Exception):
         super().__init__(*args)
 
 
-def run_command(args: list[str], capture_stdout: bool = False) -> tuple[int, str]:
+def run_command(args: list[str], capture_stdout: bool = False, capture_stderr: bool = False) -> tuple[int, str]:
     """Run a command and return the exit code"""
     logger = getLogger("nixos_nspawn.command")
     logger.debug("Running command '%s'", " ".join(args))
 
-    process = Popen(args, stdout=PIPE if capture_stdout else None)
+    process = Popen(args, stdout=PIPE if capture_stdout else None, stderr=PIPE if capture_stderr else None)
     exit_code = process.wait()
 
     stdout = ""

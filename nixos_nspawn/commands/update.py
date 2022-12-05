@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..constants import RC_CONTAINER_MISSING
+from ..metadata import system
 from ._command import BaseCommand, Command
 from ._shared import check_config_or_flake
 
@@ -27,12 +28,19 @@ class UpdateCommand(BaseCommand, Command):
             ),
             choices=["reload", "restart"],
         )
+        parser.add_argument(
+            "--system",
+            help=f"The host platform name. The default ({system}) is selected at compile time.",
+            type=str,
+            default=system,
+        )
 
     def run(self) -> int:
         name: str = self.parsed_args.name
         strategy: Optional[str] = self.parsed_args.strategy
         config: Optional[Path] = self.parsed_args.config
         flake: Optional[str] = self.parsed_args.flake
+        system: str = self.parsed_args.system
 
         if rc := check_config_or_flake(config, flake):
             return rc
@@ -44,7 +52,13 @@ class UpdateCommand(BaseCommand, Command):
             # Distinguishable return code from other exceptions
             return RC_CONTAINER_MISSING
 
-        self.manager.update(container=container, config=config, flake=flake, activation_strategy=strategy)
+        self.manager.update(
+            container=container,
+            config=config,
+            flake=flake,
+            system=system,
+            activation_strategy=strategy,
+        )
 
         self._jprint(container.to_dict())
         self._rprint(

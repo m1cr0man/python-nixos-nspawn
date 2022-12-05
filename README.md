@@ -2,7 +2,26 @@
 
 Rewrite of the Nix RFC 108 POC imperative container manager.
 
-## Development environment setup
+# Installation
+
+nixos_nspawn can be installed as a flake from this repository.
+A super quick way to get started is:
+
+```bash
+nix run github:m1cr0man/python-nixos-nspawn -- --help
+```
+
+# Usage + Commands
+
+## Creating a container
+
+- Create a Nix configuration for the container, following the below example:
+
+```nix
+
+```
+
+# Development environment setup
 
 This repository uses Nix to manage environments.
 Use the following commands to get started:

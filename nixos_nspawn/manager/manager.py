@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..constants import DEFAULT_NSPAWN_DIR
+from ..metadata import system
 from ..models import Container
 
 
@@ -47,7 +48,11 @@ class NixosNspawnManager(object):
             raise NixosNspawnManagerError(f"Virtual zone '{zone}' does not exist!")
 
     def create(
-        self, name: str, config: Optional[Path] = None, flake: Optional[str] = None
+        self,
+        name: str,
+        config: Optional[Path] = None,
+        flake: Optional[str] = None,
+        system: str = system,
     ) -> Container:
         container = Container(unit_file=self.unit_file_dir / f"{name}.nspawn")
 
@@ -60,7 +65,7 @@ class NixosNspawnManager(object):
             if config:
                 container.build_nixos_config(config, show_trace=self.show_trace)
             elif flake:
-                container.build_flake_config(flake, show_trace=self.show_trace)
+                container.build_flake_config(flake, system=system, show_trace=self.show_trace)
             self._check_network_zone(container)
             container.write_nspawn_unit_file()
             container.create_state_directories()
@@ -81,6 +86,7 @@ class NixosNspawnManager(object):
         container: Container,
         config: Optional[Path] = None,
         flake: Optional[str] = None,
+        system: str = system,
         activation_strategy: Optional[str] = None,
     ) -> None:
         self.__logger.debug(
@@ -94,7 +100,9 @@ class NixosNspawnManager(object):
         if config:
             container.build_nixos_config(config, update=True, show_trace=self.show_trace)
         elif flake:
-            container.build_flake_config(flake, update=True, show_trace=self.show_trace)
+            container.build_flake_config(
+                flake, system=system, update=True, show_trace=self.show_trace
+            )
         self._check_network_zone(container)
         container.write_nspawn_unit_file()
         sync()
