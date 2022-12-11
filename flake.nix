@@ -7,7 +7,7 @@
   outputs = { self, nixpkgs, flake-utils }:
     let
       name = "nixos-nspawn";
-      version = with builtins; head (split "" (readFile "${self}/nixos_nspawn/version.txt"));
+      version = with builtins; head (split "[:space:\n]+" (readFile "${self}/nixos_nspawn/version.txt"));
       pythonVersion = "python310";
     in
     {

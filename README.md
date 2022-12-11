@@ -19,8 +19,17 @@ nix run github:m1cr0man/python-nixos-nspawn -- --help
  python installed.
 
 ```bash
-$ sudo nixos-nspawn create --flake github:m1cr0man/python-nixos-nspawn#example
-$ sudo machinectl enter example
+$ sudo nixos-nspawn create --flake github:m1cr0man/python-nixos-nspawn#example example
+nixos_nspawn.container.example: Building configuration from flake github:m1cr0man/python-nixos-nspawn#example
+nixos_nspawn.container.example: Writing nspawn unit file
+nixos_nspawn.container.example: Starting
+Container example created successfully. Details:
+Container example
+  Unit File: /etc/systemd/nspawn/example.nspawn
+  Imperative: True
+  State: running
+$ sudo machinectl enter
+[root@example:~]#
 ```
 
 ## Listing containers
@@ -33,7 +42,7 @@ Showing 1 of 1 containers:
 Container example
   Unit File: /etc/systemd/nspawn/example.nspawn
   Imperative: True
-  State: powered off
+  State: running
 ```
 
 # Development environment setup
