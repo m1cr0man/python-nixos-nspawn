@@ -1,3 +1,5 @@
 [virtualenvs]
 create = true
 in-project = true
+# Avoid Nix GC
+options.always-copy = true

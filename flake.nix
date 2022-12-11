@@ -1,67 +1,55 @@
 {
   inputs = {
     nixpkgs.url = "nixpkgs";
-    poetry2nix = {
-      url = "github:nix-community/poetry2nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, poetry2nix, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils }:
     let
       name = "nixos-nspawn";
-      version = builtins.readFile "${self}/nixos_nspawn/version.txt";
+      version = with builtins; head (split "" (readFile "${self}/nixos_nspawn/version.txt"));
       pythonVersion = "python310";
-
-      projectDir = self;
-
-      customOverrides = (pyself: pysuper: {
-        # flake8-annotations is missing poetry-core when parsed by poetry2nix
-        flake8-annotations = pysuper.flake8-annotations.overridePythonAttrs (oldAttrs: {
-          nativeBuildInputs = (oldAttrs.nativeBuildInputs or [ ]) ++ [ pysuper.poetry-core ];
-        });
-        # flake8-assertive is missing setuptools when parsed by poetry2nix
-        flake8-assertive = pysuper.flake8-annotations.overridePythonAttrs (oldAttrs: {
-          nativeBuildInputs = (oldAttrs.nativeBuildInputs or [ ]) ++ [ pysuper.setuptools ];
-        });
-        # flake8-comprehensions is missing setuptools when parsed by poetry2nix
-        flake8-comprehensions = pysuper.flake8-annotations.overridePythonAttrs (oldAttrs: {
-          nativeBuildInputs = (oldAttrs.nativeBuildInputs or [ ]) ++ [ pysuper.setuptools ];
-        });
-      });
     in
     {
       overlays = {
-        default = nixpkgs.lib.composeManyExtensions [
-          poetry2nix.overlay
-          self.overlays."${name}"
-        ];
+        default = self.overlays."${name}";
         "${name}" = (final: prev: {
-          "${name}" = prev.poetry2nix.mkPoetryApplication {
-            inherit projectDir;
-            python = prev."${pythonVersion}";
-            overrides = prev.poetry2nix.overrides.withDefaults customOverrides;
-            # Skip installing dev-dependencies
-            # https://github.com/nix-community/poetry2nix/issues/47
-            doCheck = false;
-            meta = {
-              name = "${name}-${version}";
+          "${name}" =
+            let
+              pyPkgs = final."${pythonVersion}Packages";
+            in
+            pyPkgs.buildPythonPackage {
+              inherit version;
+              pname = name;
+              src = self;
+              format = "pyproject";
+
+              buildInputs = [ pyPkgs.poetry ];
+              propagatedBuildInputs = [ pyPkgs.rich ];
+
+              patches = [
+                # Need to compile in the system architecture.
+                # The Nix tools do the same thing.
+                (final.writeText
+                  "nixos_nspawn_set_system.patch"
+                  ''
+                    --- a/nixos_nspawn/system.txt
+                    +++ b/nixos_nspawn/system.txt
+                    @@ -1 +1 @@
+                    -x86_64-linux
+                    +${final.hostPlatform.system}
+                  '')
+              ];
+
+              checkPhase = ''
+                $out/bin/nixos-nspawn list > /dev/null
+              '';
+
+              meta = {
+                name = "${name}-${version}";
+                description = "RFC 108 imperative container manager";
+              };
             };
-            patches = [
-              # Need to compile in the system architecture.
-              # The Nix tools do the same thing.
-              (final.writeText
-                "nixos_nspawn_set_system.patch"
-                ''
-                  --- a/nixos_nspawn/system.txt
-                  +++ b/nixos_nspawn/system.txt
-                  @@ -1 +1 @@
-                  -x86_64-linux
-                  +${final.hostPlatform.system}
-                '')
-            ];
-          };
         });
       };
 
@@ -81,11 +69,7 @@
         packages = {
           default = pkgs."${name}";
           "${name}" = packages.default;
-          "${name}-venv" = pkgs.poetry2nix.mkPoetryEnv {
-            inherit python projectDir;
-            overrides = pkgs.poetry2nix.overrides.withDefaults customOverrides;
-          };
-          sudo-nspawn = import ./nix/sudo-nspawn.nix { inherit (pkgs) sudo; };
+          sudo-nspawn = import "${self}/nix/sudo-nspawn.nix" { inherit (pkgs) sudo; };
         };
 
         apps = {
@@ -94,8 +78,7 @@
         };
 
         devShells = {
-          default = packages."${name}-venv".env;
-          poetry = (python.withPackages (pyPkgs: [ pyPkgs.poetry ])).env;
+          default = (python.withPackages (pyPkgs: [ pyPkgs.poetry pyPkgs.rich ])).env;
         };
 
         # Nix < 2.7 compatibility
