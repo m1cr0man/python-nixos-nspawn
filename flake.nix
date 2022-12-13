@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "nixpkgs";
+    nixpkgs.url = "github:nixos/nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -8,48 +8,50 @@
     let
       name = "nixos-nspawn";
       version = with builtins; head (split "[:space:\n]+" (readFile "${self}/nixos_nspawn/version.txt"));
-      pythonVersion = "python310";
     in
     {
       overlays = {
         default = self.overlays."${name}";
         "${name}" = (final: prev: {
-          "${name}" =
-            let
-              pyPkgs = final."${pythonVersion}Packages";
-            in
-            pyPkgs.buildPythonPackage {
-              inherit version;
-              pname = name;
-              src = self;
-              format = "pyproject";
+          # Use pythonPackageExtensions so that any supported version of Python can be used
+          "${name}" = prev.python3Packages."${name}";
+          pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+            (python-final: python-prev: {
+              "${name}" = python-prev.buildPythonPackage {
+                inherit version;
+                pname = name;
+                src = self;
+                disabled = python-prev.pythonOlder "3.9";
 
-              buildInputs = [ pyPkgs.poetry ];
-              propagatedBuildInputs = [ pyPkgs.rich ];
+                format = "pyproject";
+                buildInputs = [ python-prev.poetry-core ];
+                propagatedBuildInputs = [ python-prev.rich ];
 
-              patches = [
-                # Need to compile in the system architecture.
-                # The Nix tools do the same thing.
-                (final.writeText
-                  "nixos_nspawn_set_system.patch"
-                  ''
-                    --- a/nixos_nspawn/system.txt
-                    +++ b/nixos_nspawn/system.txt
-                    @@ -1 +1 @@
-                    -x86_64-linux
-                    +${final.hostPlatform.system}
-                  '')
-              ];
+                patches = [
+                  # Need to compile in the system architecture.
+                  # The Nix tools do the same thing.
+                  (final.writeText
+                    "nixos_nspawn_set_system.patch"
+                    ''
+                      --- a/nixos_nspawn/system.txt
+                      +++ b/nixos_nspawn/system.txt
+                      @@ -1 +1 @@
+                      -x86_64-linux
+                      +${final.hostPlatform.system}
+                    '')
+                ];
 
-              checkPhase = ''
-                $out/bin/nixos-nspawn list > /dev/null
-              '';
+                checkPhase = ''
+                  $out/bin/nixos-nspawn list > /dev/null
+                '';
 
-              meta = {
-                name = "${name}-${version}";
-                description = "RFC 108 imperative container manager";
+                meta = {
+                  name = "${name}-${version}";
+                  description = "RFC 108 imperative container manager";
+                };
               };
-            };
+            })
+          ];
         });
       };
 
@@ -62,8 +64,6 @@
           overlays = [ self.overlays.default ];
           config = { };
         };
-
-        python = pkgs."${pythonVersion}";
       in
       rec {
         packages = {
@@ -78,7 +78,7 @@
         };
 
         devShells = {
-          default = (python.withPackages (pyPkgs: [ pyPkgs.poetry pyPkgs.rich ])).env;
+          default = (pkgs.python3.withPackages (pyPkgs: [ pkgs.poetry pyPkgs.rich ])).env;
         };
 
         # Nix < 2.7 compatibility

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nixos_nspawn"
-version = "0.2.1"
+version = "0.2.2"
 description = "NixOS Nspawn container imperative management tool"
 authors = ["Lucas Savva <lucas@m1cr0man.com>"]
 license = "MIT"
@@ -16,16 +16,17 @@ python = "^3.10"
 rich = "^12.4.1"
 
 [tool.poetry.dev-dependencies]
-black = "^22.3.0"
-isort = "^5.10.1"
-flake8 = "^4.0.1"
-flake8-annotations = "^2.9.0"
+black = "^22.12.0"
+flake8 = "^6.0.0"
+flake8-annotations = "^2.9.1"
 flake8-assertive = "^2.1.0"
-flake8-bugbear = "^22.4.25"
-flake8-comprehensions = "^3.9.0"
-pep8-naming = "^0.12.1"
-pylint = "^2.13.9"
-rope = "^1.0.0"
+flake8-bugbear = "^22.12.6"
+flake8-comprehensions = "^3.10.1"
+Flake8-pyproject = "^1.2.2"
+isort = "^5.11.1"
+pep8-naming = "^0.13.2"
+pylint = "^2.15.8"
+rope = "^1.5.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -34,6 +35,13 @@ build-backend = "poetry.core.masonry.api"
 [tool.black]
 line-length = 100
 target-version = ['py310']
+
+[tool.flake8]
+max-line-length = 91
+max-complexity = 16
+select = ["A", "B", "C", "E", "F", "M", "N", "W", "B902", "B950"]
+ignore = ["E203", "E501", "W503", "ANN101", "ANN102"]
+exclude = ["dist/*", "build/*", "__pycache__", ".git", ".vscode", "*.egg-info"]
 
 [tool.isort]
 profile = "black"

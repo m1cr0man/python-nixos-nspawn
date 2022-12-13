@@ -290,8 +290,9 @@ class Container(Printable):
         self.__logger.debug("Reading runtime property '%s'", key)
         try:
             rc, stdout = run_command(
-                ["machinectl", "show", self.name, "--property", key, "--value"], capture_stdout=True,
-                capture_stderr=ignore_error
+                ["machinectl", "show", self.name, "--property", key, "--value"],
+                capture_stdout=True,
+                capture_stderr=ignore_error,
             )
             self.__logger.debug("Value of runtime property %s: '%s'", key, stdout)
             return stdout

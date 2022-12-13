@@ -13,7 +13,9 @@ class RemoveCommand(BaseCommand, Command):
         container = self.manager.get(name)
 
         if not container:
-            self._rprint(f"[yellow]Container [bold]{name}[/bold] does not exist; Nothing done.[/yellow]")
+            self._rprint(
+                f"[yellow]Container [bold]{name}[/bold] does not exist; Nothing done.[/yellow]"
+            )
             return 0
 
         self._rprint(f"Removing container [bold]{name}[/bold]...")
