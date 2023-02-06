@@ -78,7 +78,9 @@
         };
 
         devShells = {
-          default = (pkgs.python3.withPackages (pyPkgs: [ pkgs.poetry pyPkgs.rich ])).env;
+          default = (pkgs.python3.withPackages (pyPkgs: [ pyPkgs.rich ])).env.overrideAttrs (prev: {
+            nativeBuildInputs = prev.nativeBuildInputs ++ [ pkgs.poetry ];
+          });
         };
 
         # Nix < 2.7 compatibility

@@ -1,4 +1,3 @@
-
 from dataclasses import asdict, dataclass
 
 from ._printable import Printable

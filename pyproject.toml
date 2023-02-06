@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nixos_nspawn"
-version = "0.2.2"
+version = "0.2.3"
 description = "NixOS Nspawn container imperative management tool"
 authors = ["Lucas Savva <lucas@m1cr0man.com>"]
 license = "MIT"
@@ -13,20 +13,20 @@ nixos-nspawn = "nixos_nspawn:main_with_args"
 [tool.poetry.dependencies]
 python = "^3.10"
 # Keep the rich version roughly the same as the version in nixpkgs
-rich = "^12.4.1"
+rich = "^13"
 
 [tool.poetry.dev-dependencies]
-black = "^22.12.0"
-flake8 = "^6.0.0"
-flake8-annotations = "^2.9.1"
-flake8-assertive = "^2.1.0"
-flake8-bugbear = "^22.12.6"
-flake8-comprehensions = "^3.10.1"
-Flake8-pyproject = "^1.2.2"
-isort = "^5.11.1"
-pep8-naming = "^0.13.2"
-pylint = "^2.15.8"
-rope = "^1.5.1"
+black = "^23"
+flake8 = "^6"
+flake8-annotations = "^3"
+flake8-assertive = "^2"
+flake8-bugbear = "^23"
+flake8-comprehensions = "^3"
+Flake8-pyproject = "^1"
+isort = "^5"
+pep8-naming = "^0.13"
+pylint = "^2.16"
+rope = "^1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

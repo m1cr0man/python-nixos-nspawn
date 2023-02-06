@@ -14,8 +14,7 @@ def check_config_or_flake(config: Optional[Path], flake: Optional[str]) -> int:
 
     if not (config or flake):
         rich.print(
-            "[red]One of [bold]--config[/bold] or [bold]--flake[/bold]"
-            " must be specified.[/red]"
+            "[red]One of [bold]--config[/bold] or [bold]--flake[/bold] must be specified.[/red]"
         )
         return 1
 
