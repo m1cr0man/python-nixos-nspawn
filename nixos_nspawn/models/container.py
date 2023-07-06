@@ -252,6 +252,9 @@ class Container(Printable):
         for mountpoint in profile_data.get("bindMounts", []):
             files_section["Bind"] = mountpoint
 
+        if profile_data.get("mountDaemonSocket", False):
+            files_section["Bind"] = "/nix/var/nix/daemon-socket"
+
         # [Network]
         unit_parser.add_section("Network")
         network_section = unit_parser["Network"]
