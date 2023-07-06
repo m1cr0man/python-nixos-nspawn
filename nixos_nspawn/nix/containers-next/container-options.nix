@@ -230,9 +230,9 @@ in
       NixOS configuration for the container. See {manpage}`configuration.nix(5)` for available options.
     '';
     default = { };
-    type = lib.mkOptionType {
-      name = "NixOS configuration";
-      merge = lib.const (map (x: rec { imports = [ x.value ]; key = _file; _file = x.file; }));
+    # TODO figure out why the custom type breaks recursive evaluation
+    # for the imperative host nspawn unit
+    type = types.attrs;
   };
 
   timeoutStartSec = mkOption {
