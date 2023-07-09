@@ -44,7 +44,7 @@ rec {
           ] ++ modules;
         };
       # Generate a config for a virtual host/hypervisor system too.
-      # This allows us to generate the necessary Systemd config files
+      # This allows us to generate the necessary Systemd unit files
       # for the container in Nix. They are put in place by the Python
       # code after evaluation.
       host = import "${nixpkgs}/nixos/lib/eval-config.nix"
@@ -63,8 +63,8 @@ rec {
               };
             })
             ({ config, lib, ... }: {
-              # A bit of a hack.. Use the imperative container's config as an
-              # imperative container. This will fill in the required parts of
+              # A bit of a hack.. Use the imperative container's config as a
+              # declarative container. This will fill in the required parts of
               # the module configuration to generate the Systemd units.
               nixos.containers.instances."${name}" = config.nixosContainer // {
                 # Since we already have the container's configuration evaluated above,
@@ -74,17 +74,39 @@ rec {
             })
           ] ++ modules;
         };
+
+      nspawnUnit = host.config.environment.etc."systemd/nspawn".source;
+      networkUnits = host.config.systemd.network.units;
     in
     pkgs.buildEnv {
       inherit name;
-      # We need to add a JSON copy of the nixosContainer options so that
-      # nixos_nspawn can generate the relevant systemd units.
       paths = [
-        host.config.environment.etc."systemd/nspawn".source
-        # (pkgs.writeTextDir "host" (builtins.toJSON host.config.nixos.containers.instances.example))
-        # host.config.environment.etc."systemd/network/20-ve-${name}".source
         container.config.system.build.toplevel
-        (pkgs.writeTextDir "data" (builtins.toJSON container.config.nixosContainer))
+        (pkgs.symlinkJoin {
+          name = "nixos-nspawn-data";
+          paths = [
+            # We need to add a JSON copy of the nixosContainer options so that
+            # nixos_nspawn can generate the relevant systemd units.
+            (pkgs.writeTextDir
+              "data.json"
+              (builtins.toJSON container.config.nixosContainer)
+            )
+            # Grab any systemd units that need to be installed on the host
+            nspawnUnit
+          ] ++ (
+            builtins.map
+            (name: "${networkUnits.${name}.unit}/${name}")
+            (pkgs.lib.attrNames networkUnits)
+          );
+          # Move everything into a subfolder so that when buildEnv
+          # flattens the paths we have a nixos-nspawn folder.
+          # TODO postBuild to add X- -flags to nspawn unit?
+          postBuild = ''
+            mkdir -p $out/.nixos-nspawn
+            mv $out/* $out/.nixos-nspawn/
+            mv $out/{.,}nixos-nspawn
+          '';
+        })
       ];
     };
 }
