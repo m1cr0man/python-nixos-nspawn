@@ -80,7 +80,6 @@ let
             Parameters = "${container.config.system.build.toplevel}/init";
             Ephemeral = yesNo config.ephemeral;
             KillSignal = "SIGRTMIN+3";
-            # X-ActivationStrategy = config.activation.strategy;
             PrivateUsers = mkDefault "pick";
           }
           (mkIf (!config.ephemeral) {

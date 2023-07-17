@@ -37,14 +37,17 @@ class Container(Printable):
         self.__state_dir = MACHINE_STATE_DIR / self.name
         self.__profile_dir = NIX_PROFILE_DIR / self.name
         self.__nix_path = self.__profile_dir / "system"
-        self.__network_unit_file = (
-            self.unit_file.parent.parent / "network" / f"20-ve-{self.name}.network"
-        )
+        self.__nspawn_data_dir = self.__nix_path / "nixos-nspawn"
+        self.__network_unit_dir = self.unit_file.parent.parent / "network"
 
         super(Container, self).__init__()
 
     def __eq__(self, other: Union["Container", Any]) -> bool:
         return isinstance(other, Container) and self.unit_file == other.unit_file
+
+    @property
+    def __network_units(self) -> list[Path]:
+        return self.__nspawn_data_dir.glob("*.network")
 
     @property
     def _unit_parser(self) -> SystemdUnitParser:
@@ -59,25 +62,25 @@ class Container(Printable):
         return self.__unit_parser
 
     @property
-    def is_imperative(self) -> bool:
-        return self._unit_parser.getboolean("Exec", "X-Imperative", fallback=False)
-
-    @property
     def profile_data(self) -> dict:
         if not self.__profile_data:
-            self.__logger.debug("Loading %s", self.__nix_path / "data")
-            with (self.__nix_path / "data").open() as profile_data_fd:
+            self.__logger.debug("Loading %s", self.__nspawn_data_dir / "data.json")
+            with (self.__nspawn_data_dir / "data.json").open() as profile_data_fd:
                 self.__profile_data = load(profile_data_fd)
 
         return self.__profile_data
 
     @property
-    def activation_strategy(self) -> str:
-        return self.profile_data["activation"]["strategy"]
-
-    @property
     def state(self) -> str:
         return self.get_runtime_property("State", ignore_error=True) or "powered off"
+
+    @property
+    def is_imperative(self) -> bool:
+        return not self.profile_data.get("declarative", True)
+
+    @property
+    def activation_strategy(self) -> str:
+        return not self.profile_data.get("activation", {}).get("strategy", "restart")
 
     @classmethod
     def from_unit_file(cls, unit_file: Path) -> "Container":
@@ -175,111 +178,29 @@ class Container(Printable):
         return self.__nix_path
 
     def _write_network_unit_file(self) -> None:
-        self.__logger.debug("Writing network unit file")
-        unit_parser = SystemdUnitParser()
-        profile_data = self.profile_data
+        self.__logger.debug("Linking network unit file(s)")
 
-        # [Match]
-        unit_parser.add_section("Match")
-        match_section = unit_parser["Match"]
-        match_section["Driver"] = "veth"
-        match_section["Name"] = f"ve-{self.name}"
+        self.__network_unit_dir.mkdir(mode=0o755, exist_ok=True)
+        self.__network_unit_dir.chmod(mode=0o755)
 
-        # [Network]
-        unit_parser.add_section("Network")
-        network_section = unit_parser["Network"]
-        network_section["DHCPServer"] = "yes"
-        network_section["EmitLLDP"] = "customer-bridge"
-        network_section["IPForward"] = "yes"
-        network_section["LLDP"] = "yes"
+        for unit in self.__network_units:
+            link = self.__network_unit_dir / unit.name
+            self.__logger.debug(f"{link} -> {unit}")
+            link.unlink(missing_ok=True)
+            link.symlink_to(unit)
 
-        if profile_data["network"]["v4"]["nat"]:
-            network_section["IPMasquerade"] = "both"
-
-        if profile_data["network"]["v6"]["addrPool"] != []:
-            self.__logger.warn(
-                "Warning: IPv6 SLAAC currently not supported for imperative containers!"
-            )
-
-        # Check all possible network configurations for addresses
-        for ips in [
-            profile_data["network"]["v4"]["addrPool"],
-            profile_data["network"]["v6"]["addrPool"],
-            profile_data["network"]["v4"]["static"]["hostAddresses"],
-            profile_data["network"]["v6"]["static"]["hostAddresses"],
-        ]:
-            for ip in ips:
-                network_section["Address"] = ip
-
-        self.__network_unit_file.parent.mkdir(mode=0o755, exist_ok=True)
-        self.__network_unit_file.parent.chmod(mode=0o755)
-        with self.__network_unit_file.open("w+") as unit_fd:
-            unit_parser.write(unit_fd, space_around_delimiters=False)
-        self.__network_unit_file.chmod(0o644)
-
-        run_command(["systemctl", "restart", "systemd-networkd"])
+        run_command(["systemctl", "reload", "systemd-networkd"])
 
     def write_nspawn_unit_file(self) -> None:
-        self.__logger.info("Writing nspawn unit file")
-        unit_parser = SystemdUnitParser()
-        profile_data = self.profile_data
+        # Write network units first
+        self._write_network_unit_file()
 
-        # [Exec]
-        unit_parser.add_section("Exec")
-        exec_section = unit_parser["Exec"]
-        exec_section["Boot"] = "false"
-        exec_section["KillSignal"] = "SIGRTMIN+3"
-        exec_section["Parameters"] = str(self.__nix_path / "init")
-        exec_section["PrivateUsers"] = "yes"
-        exec_section["X-ActivationStrategy"] = self.activation_strategy
-        exec_section["X-Imperative"] = "1"
-
-        if profile_data.get("ephemeral"):
-            exec_section["Ephemeral"] = "true"
-            exec_section["LinkJournal"] = "auto"
-        else:
-            exec_section["LinkJournal"] = "guest"
-
-        # [Files]
-        unit_parser.add_section("Files")
-        files_section = unit_parser["Files"]
-        files_section["BindReadOnly"] = "/nix/store"
-        files_section["BindReadOnly"] = "/nix/var/nix/db"
-        files_section["BindReadOnly"] = "/nix/var/nix/profiles"
-        files_section["BindReadOnly"] = str(NIX_PROFILE_DIR)
-        files_section["PrivateUsersOwnership"] = "auto"
-
-        for mountpoint in profile_data.get("bindMounts", []):
-            files_section["Bind"] = mountpoint
-
-        if profile_data.get("mountDaemonSocket", False):
-            files_section["Bind"] = "/nix/var/nix/daemon-socket"
-
-        # [Network]
-        unit_parser.add_section("Network")
-        network_section = unit_parser["Network"]
-
-        if network := profile_data.get("network"):
-            network_section["Private"] = "true"
-            network_section["VirtualEthernet"] = "true"
-
-        if zone := profile_data.get("zone"):
-            network_section["Zone"] = zone
-
-        if bridge := profile_data.get("bridge"):
-            network_section["Bridge"] = bridge
-
-        if network and not zone:
-            self._write_network_unit_file()
-
-        for forward_port in profile_data.get("forwardPorts", []):
-            network_section["Port"] = forward_port
-
+        self.__logger.info("Linking nspawn unit file")
+        # The unit is generated by Nix and added to the profile
         self.unit_file.parent.mkdir(mode=0o755, exist_ok=True)
         self.unit_file.parent.chmod(mode=0o755)
-        with self.unit_file.open("w+") as unit_fd:
-            unit_parser.write(unit_fd, space_around_delimiters=False)
-        self.unit_file.chmod(0o644)
+        self.unit_file.unlink(missing_ok=True)
+        self.unit_file.symlink_to(self.__nspawn_data_dir / self.unit_file.name)
 
     def create_state_directories(self) -> None:
         self.__logger.debug("Creating state directories")
@@ -356,6 +277,9 @@ class Container(Printable):
     def destroy(self) -> None:
         """Removes all files associated with the contanier."""
         self.__logger.info("Destroying files")
+        for unit in self.__network_units:
+            unit.unlink(missing_ok=True)
+        self.unit_file.unlink(missing_ok=True)
         if self.__profile_dir.exists():
             rmtree(str(self.__profile_dir))
         if self.__state_dir.exists():
@@ -364,5 +288,3 @@ class Container(Printable):
             if empty_dir.exists():
                 run_command(["chattr", "-i", str(empty_dir)])
             rmtree(str(self.__state_dir))
-        self.__network_unit_file.unlink(missing_ok=True)
-        self.unit_file.unlink(missing_ok=True)

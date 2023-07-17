@@ -47,6 +47,15 @@ let
   };
 in
 {
+  declarative = mkOption {
+    default = declarative;
+    readOnly = true;
+    type = types.bool;
+    description = lib.mdDoc ''
+      Indicates whether this container is declarative or imperative.
+    '';
+  };
+
   sharedNix = mkOption {
     default = true;
     type = types.bool;

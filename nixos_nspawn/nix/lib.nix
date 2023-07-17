@@ -100,11 +100,11 @@ rec {
           );
           # Move everything into a subfolder so that when buildEnv
           # flattens the paths we have a nixos-nspawn folder.
-          # TODO postBuild to add X- -flags to nspawn unit?
           postBuild = ''
-            mkdir -p $out/.nixos-nspawn
-            mv $out/* $out/.nixos-nspawn/
-            mv $out/{.,}nixos-nspawn
+            cd $out
+            mkdir -p .nixos-nspawn
+            mv * .nixos-nspawn/
+            mv {.,}nixos-nspawn
           '';
         })
       ];
