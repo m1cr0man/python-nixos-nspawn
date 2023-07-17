@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from logging import getLogger
 
 from ..models import Container
 from ._command import BaseCommand, Command
@@ -24,14 +25,21 @@ class ListCommand(BaseCommand, Command):
         container_type = self.parsed_args.type
         containers = self.manager.list()
         results: list[Container] = []
+        logger = getLogger("nixos_nspawn")
 
         for container in containers:
-            if (
+            if not container.is_managed:
+                logger.debug(f"Skipping unmanaged container {container.unit_file}")
+            elif (
                 not container_type
                 or (container_type == "imperative" and container.is_imperative)
                 or (container_type == "declarative" and not container.is_imperative)
             ):
                 results.append(container)
+            else:
+                logger.debug(
+                    f"Skipping {container.is_imperative and 'imperative' or 'declarative'} container {container.name}"
+                )
 
         self._rprint(f"Showing {len(results)} of {len(containers)} containers:")
 

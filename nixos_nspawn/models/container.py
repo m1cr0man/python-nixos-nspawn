@@ -62,6 +62,10 @@ class Container(Printable):
         return self.__unit_parser
 
     @property
+    def is_managed(self) -> bool:
+        return self.__nspawn_data_dir.exists()
+
+    @property
     def profile_data(self) -> dict:
         if not self.__profile_data:
             self.__logger.debug("Loading %s", self.__nspawn_data_dir / "data.json")
