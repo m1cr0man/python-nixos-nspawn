@@ -97,6 +97,7 @@
               system.stateVersion = system;
               environment.systemPackages = [ pkgs.python311 ];
               nixosContainer.network.v4.addrPool = [ "10.151.1.1/24" ];
+              nixosContainer.forwardPorts = [{hostPort = 12345; containerPort = 12345; }];
             })
           ];
         };

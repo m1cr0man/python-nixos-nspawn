@@ -70,6 +70,17 @@ let
 
   inherit (shared) mkNetworkingOpts;
 
+  mkForwardPorts = map
+    (
+      { containerPort ? null, hostPort, protocol }:
+      let
+        host = toString hostPort;
+        container = if containerPort == null then host else toString containerPort;
+      in
+      "${protocol}:${host}:${container}"
+    );
+
+
   mkImage = name: config: { container = config.system-config; inherit config; };
 
   mkContainer = cfg: let inherit (cfg) container config; in mkMerge [
@@ -104,7 +115,7 @@ let
             Zone = config.zone;
           })
           (mkIf (config.forwardPorts != [ ]) {
-            Port = config.forwardPorts;
+            Port = mkForwardPorts config.forwardPorts;
           })
         ];
       }

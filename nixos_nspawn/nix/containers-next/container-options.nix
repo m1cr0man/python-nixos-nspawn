@@ -211,14 +211,6 @@ in
       };
     });
 
-    apply = map
-      ({ containerPort ? null, hostPort, protocol }:
-        let
-          host = toString hostPort;
-          container = if containerPort == null then host else toString containerPort;
-        in
-        "${protocol}:${host}:${container}");
-
     description = lib.mdDoc ''
       Define port-forwarding from a container to host. See `--port` section
       of {manpage}`systemd-nspawn(5)` for further information.

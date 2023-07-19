@@ -182,6 +182,9 @@ class Container(Printable):
         return self.__nix_path
 
     def _write_network_unit_file(self) -> None:
+        if not self.__network_units:
+            return
+
         self.__logger.debug("Linking network unit file(s)")
 
         self.__network_unit_dir.mkdir(mode=0o755, exist_ok=True)
