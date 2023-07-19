@@ -84,7 +84,7 @@ class Container(Printable):
 
     @property
     def activation_strategy(self) -> str:
-        return not self.profile_data.get("activation", {}).get("strategy", "restart")
+        return self.profile_data.get("activation", {}).get("strategy", "restart")
 
     @classmethod
     def from_unit_file(cls, unit_file: Path) -> "Container":
