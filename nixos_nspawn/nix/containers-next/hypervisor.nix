@@ -85,28 +85,34 @@ let
 
   mkContainer = cfg: let inherit (cfg) container config; in mkMerge [
       {
-        execConfig = mkMerge [
-          {
-            Boot = false;
-            Parameters = "${container.config.system.build.toplevel}/init";
-            Ephemeral = yesNo config.ephemeral;
-            KillSignal = "SIGRTMIN+3";
-            PrivateUsers = mkDefault "pick";
-          }
-          (mkIf (!config.ephemeral) {
-            LinkJournal = mkDefault "guest";
-          })
-        ];
+        execConfig = {
+          Boot = false;
+          Parameters = "${container.config.system.build.toplevel}/init";
+          Ephemeral = yesNo config.ephemeral;
+          KillSignal = "SIGRTMIN+3";
+          PrivateUsers = mkDefault "yes";
+          LinkJournal = mkDefault (if config.ephemeral then "auto" else "guest");
+        };
         filesConfig = mkMerge [
-          { PrivateUsersChown = mkDefault "yes"; }
+          {
+            PrivateUsersOwnership = mkDefault "auto";
+            Bind = config.bindMounts;
+          }
           (mkIf config.sharedNix {
-            BindReadOnly = [ "/nix/store" ] ++ optional config.mountDaemonSocket "/nix/var/nix/db";
+            BindReadOnly = [
+              "/nix/store"
+              "/nix/var/nix/profiles"
+              "/nix/var/nix/profiles/per-nspawn"
+            ] ++ optional config.mountDaemonSocket "/nix/var/nix/db";
           })
           (mkIf (config.sharedNix && config.mountDaemonSocket) {
             Bind = [ "/nix/var/nix/daemon-socket" ];
           })
         ];
         networkConfig = mkMerge [
+          (mkIf (config.bridge != null) {
+            Bridge = config.bridge;
+          })
           (mkIf (config.zone != null || config.network != null) {
             Private = true;
             VirtualEthernet = "yes";

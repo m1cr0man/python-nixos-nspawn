@@ -5,7 +5,7 @@
 		}
 	],
 	"settings": {
-		"editor.formatOnSave": true,
+		"editor.formatOnSave": false,
 		"files.insertFinalNewline": true,
 		"files.trimTrailingWhitespace": true,
 		"python.formatting.provider": "black",
