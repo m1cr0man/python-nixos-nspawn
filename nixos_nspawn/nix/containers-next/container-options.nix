@@ -1,4 +1,4 @@
-{ pkgs, lib, declarative ? true, ... }:
+{ pkgs, lib, name, declarative ? true, config ? null, ... }:
 let
   shared = import ./shared.nix { inherit lib; };
 
@@ -234,6 +234,20 @@ in
     # TODO figure out why the custom type breaks recursive evaluation
     # for the imperative host nspawn unit
     type = types.attrs;
+    apply = x: import "${config.nixpkgs}/nixos/lib/eval-config.nix" {
+      system = pkgs.stdenv.hostPlatform.system;
+      modules = [
+        ./container-profile.nix
+        ({ pkgs, ... }: {
+          networking.hostName = name;
+          systemd.network.networks."20-host0" = mkIf (config.network != null) {
+            address = with config.network; v4.static.containerPool ++ v6.static.containerPool;
+          };
+        })
+        x
+      ];
+      prefix = [ "nixos" "containers" "instances" name "system-config" ];
+    };
   };
 
   timeoutStartSec = mkOption {

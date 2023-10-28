@@ -8,6 +8,7 @@
     let
       name = "nixos-nspawn";
       version = with builtins; head (split "[:space:\n]+" (readFile "${self}/nixos_nspawn/version.txt"));
+      nspawnNix = "${self}/nixos_nspawn/nix";
     in
     {
       overlays = {
@@ -55,7 +56,9 @@
         });
       };
 
-      lib = import "${self}/nixos_nspawn/nix/lib.nix";
+      lib = import "${nspawnNix}/lib.nix";
+
+      nixosModules.hypervisor = "${nspawnNix}/containers-next/hypervisor.nix";
 
     } // (flake-utils.lib.eachDefaultSystem (system:
       let

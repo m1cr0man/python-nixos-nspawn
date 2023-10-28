@@ -159,8 +159,8 @@ in {
 
     instances = mkOption {
       default = {};
-      type = types.attrsOf (types.submodule ({ ... }: {
-        options = import ./container-options.nix { inherit pkgs lib; declarative = true; };
+      type = types.attrsOf (types.submodule ({ name, config, ... }: {
+        options = import ./container-options.nix { inherit pkgs lib name config; declarative = true; };
       }));
 
       description = lib.mdDoc ''

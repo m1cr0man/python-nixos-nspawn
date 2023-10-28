@@ -32,7 +32,7 @@ rec {
             ({ config, pkgs, lib, ... }: {
               options.nixosContainer =
                 containerOptions
-                  { inherit pkgs lib; declarative = false; };
+                  { inherit pkgs lib name; declarative = false; };
 
               config = {
                 assertions = containerAssertions
@@ -59,7 +59,7 @@ rec {
               options = {
                 nixosContainer =
                   containerOptions
-                    { inherit pkgs lib; declarative = true; };
+                    { inherit pkgs lib name; declarative = true; };
               };
             })
             ({ config, lib, ... }: {
