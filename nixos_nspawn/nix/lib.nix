@@ -1,5 +1,4 @@
 rec {
-  containerOptions = import ./containers-next/container-options.nix;
 
   containerProfileModule = import ./containers-next/container-profile.nix;
 
@@ -22,27 +21,12 @@ rec {
     , modules ? [ ]
     }:
     let
-      # Generate the container filesystem like any regular NixOS system.
-      container = import "${nixpkgs}/nixos/lib/eval-config.nix"
-        {
-          inherit pkgs system;
-          inherit (pkgs) lib;
-          modules = [
-            containerProfileModule
-            ({ config, pkgs, lib, ... }: {
-              options.nixosContainer =
-                containerOptions
-                  { inherit pkgs lib name; declarative = false; };
+      containerOptions = import ./containers-next/container-options.nix {
+        inherit pkgs name;
+        inherit (pkgs) lib;
+        declarative = false;
+      };
 
-              config = {
-                assertions = containerAssertions
-                  { inherit lib; containerConfig = config.nixosContainer; };
-
-                networking.hostName = name;
-              };
-            })
-          ] ++ modules;
-        };
       # Generate a config for a virtual host/hypervisor system too.
       # This allows us to generate the necessary Systemd unit files
       # for the container in Nix. They are put in place by the Python
@@ -56,32 +40,38 @@ rec {
             ({ config, pkgs, lib, ... }: {
               # Add the nixosContainer option to this system so that
               # the imperative container's configuration can be parsed.
-              options = {
-                nixosContainer =
-                  containerOptions
-                    { inherit pkgs lib name; declarative = true; };
+              options.nixosContainer = containerOptions;
+
+              config.assertions = containerAssertions {
+                inherit lib; containerConfig = config.nixosContainer;
               };
             })
-            ({ config, lib, ... }: {
+            ({ config, ... }: {
               # A bit of a hack.. Use the imperative container's config as a
               # declarative container. This will fill in the required parts of
               # the module configuration to generate the Systemd units.
               nixos.containers.instances."${name}" = config.nixosContainer // {
-                # Since we already have the container's configuration evaluated above,
-                # reuse it here. This is essential for the correct init path in the nspawn unit.
-                system-config = container;
+                system-config.imports = modules ++ [{
+                  # Add the nixosContainer option to the container itself
+                  # to prevent undefined option errors. It won't actually be evaluated.
+                  options.nixosContainer = containerOptions;
+                }];
               };
             })
           ] ++ modules;
         };
 
+      containerSystem = host.config.nixos.containers.instances."${name}".system-config;
+
       nspawnUnit = host.config.environment.etc."systemd/nspawn".source;
-      networkUnits = host.config.systemd.network.units;
+      networkUnits = pkgs.lib.mapAttrsToList
+        (name: value: "${value.unit}/${name}")
+        host.config.systemd.network.units;
     in
     pkgs.buildEnv {
       inherit name;
       paths = [
-        container.config.system.build.toplevel
+        containerSystem.config.system.build.toplevel
         (pkgs.symlinkJoin {
           name = "nixos-nspawn-data";
           paths = [
@@ -89,15 +79,11 @@ rec {
             # nixos_nspawn can generate the relevant systemd units.
             (pkgs.writeTextDir
               "data.json"
-              (builtins.toJSON container.config.nixosContainer)
+              (builtins.toJSON host.config.nixosContainer)
             )
             # Grab any systemd units that need to be installed on the host
             nspawnUnit
-          ] ++ (
-            builtins.map
-            (name: "${networkUnits.${name}.unit}/${name}")
-            (pkgs.lib.attrNames networkUnits)
-          );
+          ] ++ networkUnits;
           # Move everything into a subfolder so that when buildEnv
           # flattens the paths we have a nixos-nspawn folder.
           postBuild = ''

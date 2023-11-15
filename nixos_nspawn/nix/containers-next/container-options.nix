@@ -4,7 +4,7 @@ let
 
   inherit (shared) mkNetworkingOpts;
 
-  inherit (lib) mkIf mkOption mkEnableOption mkMerge types literalExpression;
+  inherit (lib) mkIf mkOption mkOptionType mkEnableOption mkMerge types literalExpression;
 
   recUpdate3 = a: b: c: lib.recursiveUpdate a (lib.recursiveUpdate b c);
 
@@ -231,12 +231,25 @@ in
       NixOS configuration for the container. See {manpage}`configuration.nix(5)` for available options.
     '';
     default = { };
-    # TODO figure out why the custom type breaks recursive evaluation
-    # for the imperative host nspawn unit
-    type = types.attrs;
-    apply = x: import "${config.nixpkgs}/nixos/lib/eval-config.nix" {
+    type = mkOptionType {
+      name = "NixOS configuration";
+      # Instead of merging the attrs at this stage, map out each
+      # attrset into an import and let the eval-config merge them later.
+      merge = lib.const (map (x: rec { imports = [ x.value ]; key = _file; _file = x.file; }));
+    };
+    apply = let
       system = pkgs.stdenv.hostPlatform.system;
-      modules = [
+      nixpkgs = config.nixpkgs;
+      # Avoid needless import of nixpkgs
+      pkgs' = if nixpkgs == pkgs.path then pkgs else import nixpkgs {
+        inherit system;
+        inherit (pkgs) config;
+      };
+    in cfgs: import "${nixpkgs}/nixos/lib/eval-config.nix" {
+      inherit system;
+      inherit (pkgs') lib;
+      pkgs = pkgs';
+      modules = cfgs ++ [
         ./container-profile.nix
         ({ pkgs, ... }: {
           networking.hostName = name;
@@ -244,7 +257,6 @@ in
             address = with config.network; v4.static.containerPool ++ v6.static.containerPool;
           };
         })
-        x
       ];
       prefix = [ "nixos" "containers" "instances" name "system-config" ];
     };
