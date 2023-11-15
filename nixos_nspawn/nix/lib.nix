@@ -63,7 +63,7 @@ rec {
 
       containerSystem = host.config.nixos.containers.instances."${name}".system-config;
 
-      nspawnUnit = host.config.environment.etc."systemd/nspawn".source;
+      nspawnUnit = host.config.environment.etc."systemd/nspawn/${name}.nspawn".source;
       networkUnits = pkgs.lib.mapAttrsToList
         (name: value: "${value.unit}/${name}")
         host.config.systemd.network.units;
@@ -82,7 +82,8 @@ rec {
               (builtins.toJSON host.config.nixosContainer)
             )
             # Grab any systemd units that need to be installed on the host
-            nspawnUnit
+            # Since it's a single unit, we need to put it in a folder
+            (pkgs.linkFarm "nspawn-units" { "${name}.nspawn" = nspawnUnit; })
           ] ++ networkUnits;
           # Move everything into a subfolder so that when buildEnv
           # flattens the paths we have a nixos-nspawn folder.

@@ -252,7 +252,7 @@ in
       modules = cfgs ++ [
         ./container-profile.nix
         ({ pkgs, ... }: {
-          networking.hostName = name;
+          networking.hostName = lib.mkDefault name;
           systemd.network.networks."20-host0" = mkIf (config.network != null) {
             address = with config.network; v4.static.containerPool ++ v6.static.containerPool;
           };

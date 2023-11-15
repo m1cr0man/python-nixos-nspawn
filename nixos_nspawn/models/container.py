@@ -138,7 +138,10 @@ class Container(Printable):
             nixpkgs,
             "--arg",
             "config",
-            str(config),
+            f'"{config.absolute()}"',
+            "--arg",
+            "name",
+            f'"{self.name}"',
             "--set",
         ]
         if show_trace:
