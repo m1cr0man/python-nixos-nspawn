@@ -72,7 +72,7 @@
         packages = {
           default = pkgs."${name}";
           "${name}" = packages.default;
-          sudo-nspawn = import "${self}/nix/sudo-nspawn.nix" { inherit (pkgs) sudo; };
+          sudo-nspawn = import "${self}/nixos_nspawn/nix/sudo-nspawn.nix" { inherit (pkgs) sudo; };
         };
 
         apps = {
@@ -84,6 +84,10 @@
           default = (pkgs.python3.withPackages (pyPkgs: [ pyPkgs.rich ])).env.overrideAttrs (prev: {
             nativeBuildInputs = prev.nativeBuildInputs ++ [ pkgs.poetry ];
           });
+        };
+
+        checks = import ./tests/nix {
+          inherit system pkgs nixpkgs self;
         };
 
         # Nix < 2.7 compatibility

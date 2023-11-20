@@ -5,19 +5,21 @@
 		}
 	],
 	"settings": {
-		"editor.formatOnSave": false,
+		"editor.formatOnSave": true,
 		"files.insertFinalNewline": true,
 		"files.trimTrailingWhitespace": true,
-		"python.formatting.provider": "black",
+		"black-formatter.importStrategy": "fromEnvironment",
 		"python.languageServer": "Pylance",
 		"python.defaultInterpreterPath": "${workspaceRoot}/.venv/bin/python3",
-		"python.linting.enabled": true,
-		"python.linting.lintOnSave": true,
-		"python.linting.flake8Enabled": true,
 		"python.testing.pytestEnabled": false,
 		"python.testing.unittestEnabled": true,
 		"python.testing.promptToConfigure": false,
-		"python.linting.ignorePatterns": [
+		"flake8.path": [
+			"python",
+			"-m",
+			"flake8p"
+		],
+		"flake8.ignorePatterns": [
 			".vscode/*.py",
 			"**/site-packages/**/*.py",
 			"**/__pycache__/*",
@@ -25,6 +27,7 @@
 			"build/*"
 		],
 		"[python]": {
+			"editor.defaultFormatter": "ms-python.black-formatter",
 			"editor.codeActionsOnSave": {
 				"source.organizeImports": true
 			}

@@ -70,6 +70,10 @@ rec {
     in
     pkgs.buildEnv {
       inherit name;
+      # This passthru allows for debugging the config in nix repl.
+      # e.g. importing the flake and then viewing the config attr
+      # of a mkContainer result.
+      passthru.config = containerSystem.config;
       paths = [
         containerSystem.config.system.build.toplevel
         (pkgs.symlinkJoin {

@@ -29,7 +29,6 @@ rec {
             </screen>
           '';
         };
-      } // (optionalAttrs (v == 4) {
         nat = mkOption {
           default = true;
           type = types.bool;
@@ -37,7 +36,7 @@ rec {
             Whether to set-up a basic NAT to enable internet access for the nspawn containers.
           '';
         };
-      });
+      };
     in
     assert elem type [ "veth" "zone" ]; {
       v4 = mkIPOptions 4;
