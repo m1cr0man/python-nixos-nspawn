@@ -80,7 +80,6 @@ let
       "${protocol}:${host}:${container}"
     );
 
-
   mkImage = name: config: { container = config.system-config; inherit config; };
 
   mkContainer = cfg: let inherit (cfg) container config; in mkMerge [
@@ -126,19 +125,19 @@ let
         ];
       }
       (mkIf (!config.sharedNix) {
-      extraDrvConfig = let
-            info = pkgs.closureInfo {
-              rootPaths = [ container.config.system.build.toplevel ];
-            };
-      in pkgs.runCommand "bindmounts.nspawn" { }
-            ''
-              echo "[Files]" > $out
+        extraDrvConfig = let
+          info = pkgs.closureInfo {
+            rootPaths = [ container.config.system.build.toplevel ];
+          };
+        in pkgs.runCommand "bindmounts.nspawn" { }
+          ''
+            echo "[Files]" > $out
 
-              cat ${info}/store-paths | while read line
-              do
-                echo "BindReadOnly=$line" >> $out
-              done
-            '';
+            cat ${info}/store-paths | while read line
+            do
+              echo "BindReadOnly=$line" >> $out
+            done
+          '';
       })
     ];
 
