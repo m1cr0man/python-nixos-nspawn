@@ -43,7 +43,7 @@ class BaseCommand(object):
 
     def __init__(self, parsed_args: Namespace, manager: NixosNspawnManager) -> None:
         # The initializer for the commands must reside outside of
-        super(BaseCommand, self).__init__()
+        super(BaseCommand, self).__init__(parsed_args, manager)
         self.parsed_args = parsed_args
         self.manager = manager
 
