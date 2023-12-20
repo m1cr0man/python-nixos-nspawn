@@ -91,6 +91,7 @@ let
           KillSignal = "SIGRTMIN+3";
           PrivateUsers = mkDefault "yes";
           LinkJournal = mkDefault (if config.ephemeral then "auto" else "guest");
+          X-ActivationStrategy = config.activation.strategy;
         };
         filesConfig = mkMerge [
           {
