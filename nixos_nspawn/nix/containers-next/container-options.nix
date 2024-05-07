@@ -18,7 +18,7 @@ let
             if v == 4 then ''[ "10.151.1.1/24" ]''
             else ''[ "fd23::/64" ]''
           );
-          description = lib.mdDoc ''
+          description = ''
             Address of the container on the host-side, i.e. the
             subnet and address assigned to `ve-<name>`.
           '';
@@ -31,7 +31,7 @@ let
             else ''[ "fd23::2/64" ]''
           );
 
-          description = lib.mdDoc ''
+          description = ''
             Addresses to be assigned to the container, i.e. the
             subnet and address assigned to the `host0`-interface.
           '';
@@ -51,7 +51,7 @@ in
     default = declarative;
     readOnly = true;
     type = types.bool;
-    description = lib.mdDoc ''
+    description = ''
       Indicates whether this container is declarative or imperative.
     '';
   };
@@ -59,7 +59,7 @@ in
   sharedNix = mkOption {
     default = true;
     type = types.bool;
-    description = lib.mdDoc ''
+    description = ''
       ::: {.warning}
         Experimental setting! Expect things to break!
       :::
@@ -69,10 +69,10 @@ in
     '';
   };
 
-  mountDaemonSocket = mkEnableOption (lib.mdDoc "daemon-socket in the container");
+  mountDaemonSocket = mkEnableOption ("daemon-socket in the container");
 
   ephemeral = mkEnableOption "ephemeral container" // {
-    description = lib.mdDoc ''
+    description = ''
       `ephemeral` means that the container's rootfs will be wiped
       before every startup. See {manpage}`systemd.nspawn(5)` for further context.
     '';
@@ -89,7 +89,7 @@ in
   bridge = mkOption {
     type = types.nullOr types.str;
     default = null;
-    description = lib.mdDoc ''
+    description = ''
       Name of the networking bridge to connect the container to.
     '';
   };
@@ -97,7 +97,7 @@ in
   zone = mkOption {
     type = types.nullOr types.str;
     default = null;
-    description = lib.mdDoc ''
+    description = ''
       Name of the networking zone defined by {manpage}`systemd.nspawn(5)`.
     '';
   };
@@ -107,14 +107,14 @@ in
       options = {
         id = mkOption {
           type = types.str;
-          description = lib.mdDoc ''
+          description = ''
             ID of the credential under which the credential can be referenced by services
             inside the container.
           '';
         };
         path = mkOption {
           type = types.str;
-          description = lib.mdDoc ''
+          description = ''
             Path or ID of the credential passed to the container.
           '';
         };
@@ -122,7 +122,7 @@ in
     });
     apply = lib.concatMapStringsSep " " ({ id, path }: "--load-credential=${id}:${path}");
     default = [ ];
-    description = lib.mdDoc ''
+    description = ''
       Credentials using the `LoadCredential=`-feature from
       {manpage}`systemd.exec(5)`. These will be passed to the container's service-manager
       and can be used in a service inside a container like
@@ -143,7 +143,7 @@ in
     strategy = mkOption {
       type = types.enum [ "none" "reload" "restart" "dynamic" ];
       default = if declarative then "dynamic" else "restart";
-      description = lib.mdDoc ''
+      description = ''
         Decide whether to **restart** or **reload**
         the container during activation.
 
@@ -156,7 +156,7 @@ in
     reloadScript = mkOption {
       default = null;
       type = types.nullOr types.path;
-      description = lib.mdDoc ''
+      description = ''
         Script to run when a container is supposed to be reloaded.
       '';
     };
@@ -165,7 +165,7 @@ in
   network = mkOption {
     type = types.nullOr (types.submodule networkSubmodule);
     default = null;
-    description = lib.mdDoc ''
+    description = ''
       Networking options for a single container. With this option used, a
       `veth`-pair is created. It's possible to configure a dynamically
       managed network with private IPv4 and ULA IPv6 the same way like zones.
@@ -187,7 +187,7 @@ in
         containerPort = mkOption {
           type = types.nullOr types.port;
           default = null;
-          description = lib.mdDoc ''
+          description = ''
             Port to forward on the container-side. If `null`, the
             [](#opt-nixos.containers.instances._name_.forwardPorts._.hostPort)-option
             will be used.
@@ -211,7 +211,7 @@ in
       };
     });
 
-    description = lib.mdDoc ''
+    description = ''
       Define port-forwarding from a container to host. See `--port` section
       of {manpage}`systemd-nspawn(5)` for further information.
     '';
@@ -220,14 +220,15 @@ in
 } // (if declarative then {
   nixpkgs = mkOption {
     default = pkgs.path;
+    defaultText = "pkgs.path";
     type = types.path;
-    description = lib.mdDoc ''
+    description = ''
       Path to the `nixpkgs`-checkout or channel to use for the container.
     '';
   };
 
   system-config = mkOption {
-    description = lib.mdDoc ''
+    description = ''
       NixOS configuration for the container. See {manpage}`configuration.nix(5)` for available options.
     '';
     default = { };
@@ -265,7 +266,7 @@ in
   timeoutStartSec = mkOption {
     type = types.str;
     default = "90s";
-    description = lib.mdDoc ''
+    description = ''
       Timeout for the startup of the container. Corresponds to `DefaultTimeoutStartSec`
       of {manpage}`systemd.system(5)`.
     '';

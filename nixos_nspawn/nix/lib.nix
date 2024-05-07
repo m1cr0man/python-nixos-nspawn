@@ -21,6 +21,9 @@ rec {
     , modules ? [ ]
     }:
     let
+      shared = import ./containers-next/shared/nix { inherit (pkgs) lib; };
+      inherit (shared) ifacePrefix;
+
       containerOptions = import ./containers-next/container-options.nix {
         inherit pkgs name;
         inherit (pkgs) lib;
@@ -61,12 +64,16 @@ rec {
           ] ++ modules;
         };
 
-      containerSystem = host.config.nixos.containers.instances."${name}".system-config;
+      containerInstance = host.config.nixos.containers.instances."${name}";
+      containerSystem = containerInstance.system-config;
 
       nspawnUnit = host.config.environment.etc."systemd/nspawn/${name}.nspawn".source;
-      networkUnits = pkgs.lib.mapAttrsToList
-        (name: value: "${value.unit}/${name}")
-        host.config.systemd.network.units;
+
+      # Only select network units defined by this module.
+      nspawnNetworks = (pkgs.lib.optionals (containerInstance.network != null && containerInstance.zone == null) [ "20-${ifacePrefix "veth"}-${name}" ]);
+      networkUnits = builtins.map
+        (name: "${host.config.systemd.network.units."${name}".unit}/${name}")
+        nspawnNetworks;
     in
     pkgs.buildEnv {
       inherit name;

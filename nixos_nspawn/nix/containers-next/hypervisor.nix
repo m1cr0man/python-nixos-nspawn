@@ -5,8 +5,11 @@ with lib;
 let
   cfg = config.nixos.containers.instances;
 
+  shared = import ./shared.nix { inherit lib; };
+
+  inherit (shared) ifacePrefix mkNetworkingOpts;
+
   yesNo = x: if x then "yes" else "no";
-  ifacePrefix = type: if type == "veth" then "ve" else "vz";
 
   dynamicAddrsDisabled = inst:
     inst.network == null || inst.network.v4.addrPool == [] && inst.network.v6.addrPool == [];
@@ -65,10 +68,6 @@ let
 
   recUpdate3 = a: b: c:
     recursiveUpdate a (recursiveUpdate b c);
-
-  shared = import ./shared.nix { inherit lib; };
-
-  inherit (shared) mkNetworkingOpts;
 
   mkForwardPorts = map
     (
@@ -150,7 +149,7 @@ in {
         options = mkNetworkingOpts "zone";
       });
       default = {};
-      description = lib.mdDoc ''
+      description = ''
         Networking zones for nspawn containers. In this mode, the host-side
         of the virtual ethernet of a machine is managed by an interface named
         `vz-<name>`.
@@ -163,7 +162,7 @@ in {
         options = import ./container-options.nix { inherit pkgs lib name config; declarative = true; };
       }));
 
-      description = lib.mdDoc ''
+      description = ''
         Attribute set to define {manpage}`systemd.nspawn(5)`-managed containers. With this attribute-set,
         a network, a shared store and a NixOS configuration can be declared for each running
         container.

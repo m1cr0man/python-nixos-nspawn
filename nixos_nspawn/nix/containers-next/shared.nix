@@ -4,6 +4,8 @@ let
   inherit (lib) elem types mkOption optionalAttrs;
 in
 rec {
+  ifacePrefix = type: if type == "veth" then "ve" else "vz";
+
   mkNetworkingOpts = type:
     let
       mkIPOptions = v: assert elem v [ 4 6 ]; {
