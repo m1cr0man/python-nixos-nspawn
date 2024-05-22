@@ -220,6 +220,13 @@ class Container(Printable):
         etc.chmod(mode=0o755)
         (etc / "os-release").touch(mode=0o644, exist_ok=True)
 
+        # Create non-existent directories for bind mounts also
+        mount: str = ""
+        for mount in self.profile_data.get("bindMounts", []):
+            src_dir = Path(mount.split(":")[0])
+            if not src_dir.exists():
+                src_dir.mkdir(mode=755, parents=True)
+
     def get_runtime_property(self, key: str, ignore_error: bool = False) -> str:
         self.__logger.debug("Reading runtime property '%s'", key)
         try:

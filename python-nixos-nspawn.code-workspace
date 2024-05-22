@@ -9,6 +9,8 @@
 		"files.insertFinalNewline": true,
 		"files.trimTrailingWhitespace": true,
 		"black-formatter.importStrategy": "fromEnvironment",
+		"python.formatting.blackPath": "black",
+		"python.formatting.provider": "black",
 		"python.languageServer": "Pylance",
 		"python.defaultInterpreterPath": "${workspaceRoot}/.venv/bin/python3",
 		"python.testing.pytestEnabled": false,

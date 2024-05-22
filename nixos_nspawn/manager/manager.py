@@ -105,6 +105,7 @@ class NixosNspawnManager(object):
             )
         self._check_network_zone(container)
         container.write_nspawn_unit_file()
+        container.create_state_directories()
         sync()
 
         container.activate_config(activation_strategy)
