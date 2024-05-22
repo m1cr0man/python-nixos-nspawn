@@ -90,11 +90,6 @@
           inherit system pkgs nixpkgs self;
         };
 
-        # Nix < 2.7 compatibility
-        defaultPackage = packages.default;
-        defaultApp = apps.default;
-        devShell = devShells.default;
-
         # Example container
         nixosContainers.example = self.lib.mkContainer {
           inherit nixpkgs system;

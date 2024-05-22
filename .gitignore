@@ -131,6 +131,7 @@ dmypy.json
 # Nix results
 result
 result/
+.direnv
 
 # Custom
 *.pex
