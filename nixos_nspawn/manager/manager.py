@@ -47,6 +47,21 @@ class NixosNspawnManager(object):
             self.__logger.debug("Could not find %s", zone_path)
             raise NixosNspawnManagerError(f"Virtual zone '{zone}' does not exist!")
 
+    def build(
+        self,
+        container: Container,
+        config: Optional[Path] = None,
+        flake: Optional[str] = None,
+        system: str = system,
+        update: bool = False,
+    ) -> Path:
+        if config:
+            return container.build_nixos_config(config, update=update, show_trace=self.show_trace)
+        elif flake:
+            return container.build_flake_config(
+                flake, system=system, update=update, show_trace=self.show_trace
+            )
+
     def create(
         self,
         name: str,
@@ -59,13 +74,12 @@ class NixosNspawnManager(object):
         if container in self.__containers:
             raise NixosNspawnManagerError(f"Container [bold]{name}[/bold] already exists!")
 
-        self.__logger.debug("Creating container [bold]%s[/bold] with config '%s'", name, config)
+        self.__logger.debug(
+            "Creating container [bold]%s[/bold] with config '%s'", name, config or flake
+        )
 
         try:
-            if config:
-                container.build_nixos_config(config, show_trace=self.show_trace)
-            elif flake:
-                container.build_flake_config(flake, system=system, show_trace=self.show_trace)
+            self.build(container, config, flake, system)
             self._check_network_zone(container)
             container.write_nspawn_unit_file()
             container.create_state_directories()
@@ -93,16 +107,11 @@ class NixosNspawnManager(object):
             "Updating container [bold]%s[/bold] with config '%s'."
             " Activation strategy override: %s",
             container.name,
-            config,
+            config or flake,
             activation_strategy,
         )
 
-        if config:
-            container.build_nixos_config(config, update=True, show_trace=self.show_trace)
-        elif flake:
-            container.build_flake_config(
-                flake, system=system, update=True, show_trace=self.show_trace
-            )
+        self.build(container, config, flake, system, update=True)
         self._check_network_zone(container)
         container.write_nspawn_unit_file()
         container.create_state_directories()
