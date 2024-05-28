@@ -12,7 +12,7 @@ let
   yesNo = x: if x then "yes" else "no";
 
   dynamicAddrsDisabled = inst:
-    inst.network == null || inst.network.v4.addrPool == [] && inst.network.v6.addrPool == [];
+    inst.network == null || inst.network.v4.addrPool == [ ] && inst.network.v6.addrPool == [ ];
 
   mkRadvdSection = type: name: v6Pool:
     assert elem type [ "veth" "zone" ];
@@ -33,7 +33,7 @@ let
   interfaces.containers = attrNames cfg;
   interfaces.zones = attrNames config.nixos.containers.zones;
   radvd = {
-    enable = with interfaces; containers != [] || zones != [];
+    enable = with interfaces; containers != [ ] || zones != [ ];
     config = concatStringsSep "\n" [
       (concatMapStrings
         (x: mkRadvdSection "veth" x cfg.${x}.network.v6.addrPool)
@@ -81,7 +81,8 @@ let
 
   mkImage = name: config: { container = config.system-config; inherit config; };
 
-  mkContainer = cfg: let inherit (cfg) container config; in mkMerge [
+  mkContainer = cfg:
+    let inherit (cfg) container config; in mkMerge [
       {
         execConfig = {
           Boot = false;
@@ -125,30 +126,33 @@ let
         ];
       }
       (mkIf (!config.sharedNix) {
-        extraDrvConfig = let
-          info = pkgs.closureInfo {
-            rootPaths = [ container.config.system.build.toplevel ];
-          };
-        in pkgs.runCommand "bindmounts.nspawn" { }
-          ''
-            echo "[Files]" > $out
+        extraDrvConfig =
+          let
+            info = pkgs.closureInfo {
+              rootPaths = [ container.config.system.build.toplevel ];
+            };
+          in
+          pkgs.runCommand "bindmounts.nspawn" { }
+            ''
+              echo "[Files]" > $out
 
-            cat ${info}/store-paths | while read line
-            do
-              echo "BindReadOnly=$line" >> $out
-            done
-          '';
+              cat ${info}/store-paths | while read line
+              do
+                echo "BindReadOnly=$line" >> $out
+              done
+            '';
       })
     ];
 
   images = mapAttrs mkImage cfg;
-in {
+in
+{
   options.nixos.containers = {
     zones = mkOption {
       type = types.attrsOf (types.submodule {
         options = mkNetworkingOpts "zone";
       });
-      default = {};
+      default = { };
       description = ''
         Networking zones for nspawn containers. In this mode, the host-side
         of the virtual ethernet of a machine is managed by an interface named
@@ -157,7 +161,7 @@ in {
     };
 
     instances = mkOption {
-      default = {};
+      default = { };
       type = types.attrsOf (types.submodule ({ name, config, ... }: {
         options = import ./container-options.nix { inherit pkgs lib name config; declarative = true; };
       }));
@@ -177,133 +181,169 @@ in {
         `null`, the container will use the host's network.
       '';
     };
+
+    enableAutostartService = (mkEnableOption "autostarting of imperative containers") // {
+      default = true;
+    };
   };
 
-  config = mkIf (cfg != {}) {
-    assertions = [
-      { assertion = !config.boot.isContainer;
-        message = ''
-          Cannot start containers inside a container!
-        '';
-      }
-      { assertion = config.networking.useNetworkd;
-        message = "Only networkd is supported!";
-      }
-    ] ++ foldlAttrs (acc: n: inst: acc ++ [
-      { assertion = inst.zone != null -> (config.nixos.containers.zones != null && config.nixos.containers.zones?${inst.zone});
-        message = ''
-          No configuration found for zone `${inst.zone}'!
-          (Invalid container: ${n})
-        '';
-      }
-      { assertion = inst.zone != null -> dynamicAddrsDisabled inst;
-        message = ''
-          Cannot assign additional generic address-pool to a veth-pair if corresponding
-          container `${n}' already uses zone `${inst.zone}'!
-        '';
-      }
-      { assertion = !inst.sharedNix -> ! (elem inst.activation.strategy [ "reload" "dynamic" ]);
-        message = ''
-          Cannot reload a container with `sharedNix' disabled! As soon as the
-          `BindReadOnly='-options change, a config activation can't be done without a reboot
-          (affected: ${n})!
-        '';
-      }
-      { assertion = (inst.zone != null && inst.network != null) -> (inst.network.v4.static.hostAddresses ++ inst.network.v6.static.hostAddresses) == [];
-        message = ''
-          Container ${n} is in zone ${inst.zone}, but also attempts to define
-          it's one host-side addresses. Use the host-side addresses of the zone instead.
-        '';
-      }
-    ]) [ ] cfg;
-
-    services = { inherit radvd; };
-
-    systemd = {
-      network.networks =
-        foldlAttrs (acc: name: config: acc // optionalAttrs (config.network != null && config.zone == null) {
-          "20-${ifacePrefix "veth"}-${name}" = {
-            matchConfig = mkMatchCfg "veth" name;
-            address = config.network.v4.addrPool
-              ++ config.network.v6.addrPool
-              ++ optionals (config.network.v4.static.hostAddresses != null)
-              config.network.v4.static.hostAddresses
-              ++ optionals (config.network.v6.static.hostAddresses != null)
-              config.network.v6.static.hostAddresses;
-            networkConfig = mkNetworkCfg (config.network.v4.addrPool != []) {
-              v4Nat = config.network.v4.nat;
-              v6Nat = config.network.v6.nat;
-            };
-          };
-        }) { } cfg
-        // foldlAttrs (acc: name: zone: acc // {
-          "20-${ifacePrefix "zone"}-${name}" = {
-            matchConfig = mkMatchCfg "zone" name;
-            address = zone.v4.addrPool
-              ++ zone.v6.addrPool
-              ++ zone.hostAddresses;
-            networkConfig = mkNetworkCfg true {
-              v4Nat = zone.v4.nat;
-              v6Nat = zone.v6.nat;
-            };
-          };
-        }) { } config.nixos.containers.zones;
-
-      nspawn = mapAttrs (const mkContainer) images;
-      targets.machines.wants = map (x: "systemd-nspawn@${x}.service") (attrNames cfg);
-      services = flip mapAttrs' cfg (container: { activation, timeoutStartSec, credentials, ... }:
-        nameValuePair "systemd-nspawn@${container}" {
-          preStart = mkBefore ''
-            if [ ! -d /var/lib/machines/${container} ]; then
-              mkdir -p /var/lib/machines/${container}/{etc,var,nix/var/nix}
-              touch /var/lib/machines/${container}/etc/{os-release,machine-id}
-            fi
+  config = mkMerge [
+    {
+      systemd.services.nixos-nspawn-autostart = mkIf (config.nixos.containers.enableAutostartService) {
+        description = "Automatically starts imperative containers on system boot";
+        wantedBy = [ "machines.target" ];
+        before = [ "machines.target" ];
+        unitConfig.RequiresMountsFor = "/etc/systemd/nspawn";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          Restart = "no";
+          ExecStart = "${pkgs.nixos-nspawn}/bin/nixos-nspawn autostart";
+        };
+      };
+    }
+    (mkIf (cfg != { }) {
+      assertions = [
+        {
+          assertion = !config.boot.isContainer;
+          message = ''
+            Cannot start containers inside a container!
           '';
+        }
+        {
+          assertion = config.networking.useNetworkd;
+          message = "Only networkd is supported!";
+        }
+      ] ++ foldlAttrs
+        (acc: n: inst: acc ++ [
+          {
+            assertion = inst.zone != null -> (config.nixos.containers.zones != null && config.nixos.containers.zones?${inst.zone});
+            message = ''
+              No configuration found for zone `${inst.zone}'!
+              (Invalid container: ${n})
+            '';
+          }
+          {
+            assertion = inst.zone != null -> dynamicAddrsDisabled inst;
+            message = ''
+              Cannot assign additional generic address-pool to a veth-pair if corresponding
+              container `${n}' already uses zone `${inst.zone}'!
+            '';
+          }
+          {
+            assertion = !inst.sharedNix -> ! (elem inst.activation.strategy [ "reload" "dynamic" ]);
+            message = ''
+              Cannot reload a container with `sharedNix' disabled! As soon as the
+              `BindReadOnly='-options change, a config activation can't be done without a reboot
+              (affected: ${n})!
+            '';
+          }
+          {
+            assertion = (inst.zone != null && inst.network != null) -> (inst.network.v4.static.hostAddresses ++ inst.network.v6.static.hostAddresses) == [ ];
+            message = ''
+              Container ${n} is in zone ${inst.zone}, but also attempts to define
+              it's one host-side addresses. Use the host-side addresses of the zone instead.
+            '';
+          }
+        ]) [ ]
+        cfg;
 
-          partOf = [ "machines.target" ];
-          before = [ "machines.target" ];
+      services = { inherit radvd; };
 
-          serviceConfig = mkMerge [
-            { TimeoutStartSec = timeoutStartSec;
-              # Inherit settings from `systemd-nspawn@.service`.
-              # Workaround since settings from `systemd-nspawn@.service`-settings are not
-              # picked up if an override exists and `systemd-nspawn@ldap` exists.
-              RestartForceExitStatus = 133;
-              Type = "notify";
-              TasksMax = 16384;
-              WatchdogSec = "3min";
-              SuccessExitStatus = 133;
-              Delegate = "yes";
-              KillMode = "mixed";
-              Slice = "machine.slice";
-              DevicePolicy = "closed";
-              DeviceAllow = [
-                "/dev/net/tun rwm"
-                "char-pts rw"
-                "/dev/loop-control rw"
-                "block-loop rw"
-                "block-blkext rw"
-                "/dev/mapper/control rw"
-                "block-device-mapper rw"
-              ];
-              X-ActivationStrategy = activation.strategy;
-              ExecStart = [
-                ""
-                "${config.systemd.package}/bin/systemd-nspawn ${credentials} --quiet --keep-unit --boot --network-veth --settings=override --machine=%i"
-              ];
-            }
-            (mkIf (elem activation.strategy [ "reload" "dynamic" ]) {
-              ExecReload = if activation.reloadScript != null
-                then "${activation.reloadScript}"
-                else "${pkgs.writeShellScript "activate" ''
+      systemd = {
+        network.networks =
+          foldlAttrs
+            (acc: name: config: acc // optionalAttrs (config.network != null && config.zone == null) {
+              "20-${ifacePrefix "veth"}-${name}" = {
+                matchConfig = mkMatchCfg "veth" name;
+                address = config.network.v4.addrPool
+                ++ config.network.v6.addrPool
+                ++ optionals (config.network.v4.static.hostAddresses != null)
+                  config.network.v4.static.hostAddresses
+                ++ optionals (config.network.v6.static.hostAddresses != null)
+                  config.network.v6.static.hostAddresses;
+                networkConfig = mkNetworkCfg (config.network.v4.addrPool != [ ]) {
+                  v4Nat = config.network.v4.nat;
+                  v6Nat = config.network.v6.nat;
+                };
+              };
+            })
+            { }
+            cfg
+          // foldlAttrs
+            (acc: name: zone: acc // {
+              "20-${ifacePrefix "zone"}-${name}" = {
+                matchConfig = mkMatchCfg "zone" name;
+                address = zone.v4.addrPool
+                ++ zone.v6.addrPool
+                ++ zone.hostAddresses;
+                networkConfig = mkNetworkCfg true {
+                  v4Nat = zone.v4.nat;
+                  v6Nat = zone.v6.nat;
+                };
+              };
+            })
+            { }
+            config.nixos.containers.zones;
+
+        nspawn = mapAttrs (const mkContainer) images;
+        targets.machines.wants = map (x: "systemd-nspawn@${x}.service") (attrNames cfg);
+        services = flip mapAttrs' cfg (container: { activation, timeoutStartSec, credentials, ... }:
+          nameValuePair "systemd-nspawn@${container}" {
+            preStart = mkBefore ''
+              if [ ! -d /var/lib/machines/${container} ]; then
+                mkdir -p /var/lib/machines/${container}/{etc,var,nix/var/nix}
+                touch /var/lib/machines/${container}/etc/{os-release,machine-id}
+              fi
+            '';
+
+            partOf = optionals (activation.autostart) [ "machines.target" ];
+            before = [ "machines.target" ];
+
+            serviceConfig = mkMerge [
+              {
+                TimeoutStartSec = timeoutStartSec;
+                # Inherit settings from `systemd-nspawn@.service`.
+                # Workaround since settings from `systemd-nspawn@.service`-settings are not
+                # picked up if an override exists and `systemd-nspawn@ldap` exists.
+                RestartForceExitStatus = 133;
+                Type = "notify";
+                TasksMax = 16384;
+                WatchdogSec = "3min";
+                SuccessExitStatus = 133;
+                Delegate = "yes";
+                KillMode = "mixed";
+                Slice = "machine.slice";
+                DevicePolicy = "closed";
+                DeviceAllow = [
+                  "/dev/net/tun rwm"
+                  "char-pts rw"
+                  "/dev/loop-control rw"
+                  "block-loop rw"
+                  "block-blkext rw"
+                  "/dev/mapper/control rw"
+                  "block-device-mapper rw"
+                ];
+                X-ActivationStrategy = activation.strategy;
+                ExecStart = [
+                  ""
+                  "${config.systemd.package}/bin/systemd-nspawn ${credentials} --quiet --keep-unit --boot --network-veth --settings=override --machine=%i"
+                ];
+              }
+              (mkIf (elem activation.strategy [ "reload" "dynamic" ]) {
+                ExecReload =
+                  if activation.reloadScript != null
+                  then "${activation.reloadScript}"
+                  else "${pkgs.writeShellScript "activate" ''
                   pid=$(machinectl show ${container} --value --property Leader)
                   ${pkgs.util-linux}/bin/nsenter -t "$pid" -m -u -U -i -n -p \
                     -- ${images.${container}.container.config.system.build.toplevel}/bin/switch-to-configuration test
                 ''}";
-            })
-          ];
-        }
-      );
-    };
-  };
+              })
+            ];
+          }
+        );
+      };
+    })
+  ];
 }

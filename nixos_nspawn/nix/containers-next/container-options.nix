@@ -160,6 +160,10 @@ in
         Script to run when a container is supposed to be reloaded.
       '';
     };
+
+    autostart = (mkEnableOption "starting the container on hypervisor boot") // {
+      default = true;
+    };
   };
 
   network = mkOption {

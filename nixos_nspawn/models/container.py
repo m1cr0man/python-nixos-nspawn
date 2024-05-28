@@ -86,6 +86,11 @@ class Container(Printable):
     def activation_strategy(self) -> str:
         return self.profile_data.get("activation", {}).get("strategy", "restart")
 
+    @property
+    def autostart(self) -> bool:
+        # Default to True for older containers/those which predate the option.
+        return self.profile_data.get("activation", {}).get("autostart", True)
+
     @classmethod
     def from_unit_file(cls, unit_file: Path) -> "Container":
         return cls(unit_file)

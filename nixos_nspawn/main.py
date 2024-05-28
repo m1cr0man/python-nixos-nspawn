@@ -8,15 +8,6 @@ from rich.traceback import install as install_rich
 
 from nixos_nspawn import commands, constants, manager, metadata, models, utilities
 
-COMMANDS = [
-    commands.CreateCommand,
-    commands.ListCommand,
-    commands.ListGenerationsCommand,
-    commands.RemoveCommand,
-    commands.RollbackCommand,
-    commands.UpdateCommand,
-]
-
 
 def main(args: list[str]) -> int:
     parser = ArgumentParser(description=f"NixOS imperative container manager v{metadata.version}")
@@ -37,7 +28,7 @@ def main(args: list[str]) -> int:
     subparsers = parser.add_subparsers(dest="command", help="Command to execute", required=True)
 
     # Register all the commands
-    for command in COMMANDS:
+    for command in commands.COMMANDS:
         cmd_parser = subparsers.add_parser(
             command.name, help=command.__doc__, description=command.__doc__
         )
