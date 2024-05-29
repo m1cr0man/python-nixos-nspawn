@@ -259,6 +259,7 @@ in
         ({ pkgs, ... }: {
           networking.hostName = lib.mkDefault name;
           systemd.network.networks."20-host0" = mkIf (config.network != null) {
+            name = "host0";
             address = with config.network; v4.static.containerPool ++ v6.static.containerPool;
           };
         })
