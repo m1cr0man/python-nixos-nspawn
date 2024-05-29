@@ -307,7 +307,7 @@ in
             serviceConfig = {
               TimeoutStartSec = timeoutStartSec;
               X-ActivationStrategy = activation.strategy;
-              ExecStart = [
+              ExecStart = optionals (credentials != "") [
                 ""
                 "${config.systemd.package}/bin/systemd-nspawn ${credentials} --quiet --keep-unit --boot --network-veth --settings=override --machine=%i"
               ];
