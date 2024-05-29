@@ -82,7 +82,8 @@ let
   mkImage = name: config: { container = config.system-config; inherit config; };
 
   mkContainer = cfg:
-    let inherit (cfg) container config; in mkMerge [
+    let inherit (cfg) container config; in
+    mkMerge [
       {
         execConfig = {
           Boot = false;
@@ -292,6 +293,10 @@ in
         ));
         services = flip mapAttrs' cfg (container: { activation, timeoutStartSec, credentials, ... }:
           nameValuePair "systemd-nspawn@${container}" {
+            overrideStrategy = "asDropin";
+
+            environment.SYSTEMD_NSPAWN_UNIFIED_HIERARCHY = "1";
+
             preStart = mkBefore ''
               if [ ! -d /var/lib/machines/${container} ]; then
                 mkdir -p /var/lib/machines/${container}/{etc,var,nix/var/nix}
@@ -299,50 +304,26 @@ in
               fi
             '';
 
-            partOf = optionals (activation.autostart) [ "machines.target" ];
-            before = [ "machines.target" ];
-
-            serviceConfig = mkMerge [
-              {
-                TimeoutStartSec = timeoutStartSec;
-                # Inherit settings from `systemd-nspawn@.service`.
-                # Workaround since settings from `systemd-nspawn@.service`-settings are not
-                # picked up if an override exists and `systemd-nspawn@ldap` exists.
-                RestartForceExitStatus = 133;
-                Type = "notify";
-                TasksMax = 16384;
-                WatchdogSec = "3min";
-                SuccessExitStatus = 133;
-                Delegate = "yes";
-                KillMode = "mixed";
-                Slice = "machine.slice";
-                DevicePolicy = "closed";
-                DeviceAllow = [
-                  "/dev/net/tun rwm"
-                  "char-pts rw"
-                  "/dev/loop-control rw"
-                  "block-loop rw"
-                  "block-blkext rw"
-                  "/dev/mapper/control rw"
-                  "block-device-mapper rw"
-                ];
-                X-ActivationStrategy = activation.strategy;
-                ExecStart = [
-                  ""
-                  "${config.systemd.package}/bin/systemd-nspawn ${credentials} --quiet --keep-unit --boot --network-veth --settings=override --machine=%i"
-                ];
-              }
-              (mkIf (elem activation.strategy [ "reload" "dynamic" ]) {
-                ExecReload =
-                  if activation.reloadScript != null
-                  then "${activation.reloadScript}"
-                  else "${pkgs.writeShellScript "activate" ''
-                  pid=$(machinectl show ${container} --value --property Leader)
-                  ${pkgs.util-linux}/bin/nsenter -t "$pid" -m -u -U -i -n -p \
-                    -- ${images.${container}.container.config.system.build.toplevel}/bin/switch-to-configuration test
-                ''}";
-              })
-            ];
+            serviceConfig = {
+              TimeoutStartSec = timeoutStartSec;
+              X-ActivationStrategy = activation.strategy;
+              ExecStart = [
+                ""
+                "${config.systemd.package}/bin/systemd-nspawn ${credentials} --quiet --keep-unit --boot --network-veth --settings=override --machine=%i"
+              ];
+              ExecReload =
+                let
+                  reloadScript =
+                    if activation.reloadScript != null then activation.reloadScript
+                    else
+                      pkgs.writeShellScript "activate" ''
+                        pid=$(machinectl show ${container} --value --property Leader)
+                        ${pkgs.util-linux}/bin/nsenter -t "$pid" -m -u -U -i -n -p \
+                          -- ${images.${container}.container.config.system.build.toplevel}/bin/switch-to-configuration test
+                      '';
+                in
+                mkIf (elem activation.strategy [ "reload" "dynamic" ]) (builtins.toString reloadScript);
+            };
           }
         );
       };
