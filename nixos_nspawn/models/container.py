@@ -89,7 +89,7 @@ class Container(Printable):
     @property
     def autostart(self) -> bool:
         # Default to True for older containers/those which predate the option.
-        return self.profile_data.get("activation", {}).get("autostart", True)
+        return self.profile_data.get("activation", {}).get("autoStart", True)
 
     @classmethod
     def from_unit_file(cls, unit_file: Path) -> "Container":

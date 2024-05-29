@@ -287,7 +287,9 @@ in
             config.nixos.containers.zones;
 
         nspawn = mapAttrs (const mkContainer) images;
-        targets.machines.wants = map (x: "systemd-nspawn@${x}.service") (attrNames cfg);
+        targets.machines.wants = map (x: "systemd-nspawn@${x}.service") (attrNames (
+          filterAttrs (n: v: v.activation.autoStart) cfg
+        ));
         services = flip mapAttrs' cfg (container: { activation, timeoutStartSec, credentials, ... }:
           nameValuePair "systemd-nspawn@${container}" {
             preStart = mkBefore ''

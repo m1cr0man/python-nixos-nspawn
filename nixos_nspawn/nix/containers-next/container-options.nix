@@ -161,7 +161,7 @@ in
       '';
     };
 
-    autostart = (mkEnableOption "starting the container on hypervisor boot") // {
+    autoStart = (mkEnableOption "starting the container on hypervisor boot") // {
       default = true;
     };
   };
@@ -242,30 +242,33 @@ in
       # attrset into an import and let the eval-config merge them later.
       merge = lib.const (map (x: rec { imports = [ x.value ]; key = _file; _file = x.file; }));
     };
-    apply = let
-      system = pkgs.stdenv.hostPlatform.system;
-      nixpkgs = config.nixpkgs;
-      # Avoid needless import of nixpkgs
-      pkgs' = if nixpkgs == pkgs.path then pkgs else import nixpkgs {
+    apply =
+      let
+        system = pkgs.stdenv.hostPlatform.system;
+        nixpkgs = config.nixpkgs;
+        # Avoid needless import of nixpkgs
+        pkgs' = if nixpkgs == pkgs.path then pkgs else
+        import nixpkgs {
+          inherit system;
+          inherit (pkgs) config;
+        };
+      in
+      cfgs: import "${nixpkgs}/nixos/lib/eval-config.nix" {
         inherit system;
-        inherit (pkgs) config;
+        inherit (pkgs') lib;
+        pkgs = pkgs';
+        modules = cfgs ++ [
+          ./container-profile.nix
+          ({ pkgs, ... }: {
+            networking.hostName = lib.mkDefault name;
+            systemd.network.networks."20-host0" = mkIf (config.network != null) {
+              name = "host0";
+              address = with config.network; v4.static.containerPool ++ v6.static.containerPool;
+            };
+          })
+        ];
+        prefix = [ "nixos" "containers" "instances" name "system-config" ];
       };
-    in cfgs: import "${nixpkgs}/nixos/lib/eval-config.nix" {
-      inherit system;
-      inherit (pkgs') lib;
-      pkgs = pkgs';
-      modules = cfgs ++ [
-        ./container-profile.nix
-        ({ pkgs, ... }: {
-          networking.hostName = lib.mkDefault name;
-          systemd.network.networks."20-host0" = mkIf (config.network != null) {
-            name = "host0";
-            address = with config.network; v4.static.containerPool ++ v6.static.containerPool;
-          };
-        })
-      ];
-      prefix = [ "nixos" "containers" "instances" name "system-config" ];
-    };
   };
 
   timeoutStartSec = mkOption {
