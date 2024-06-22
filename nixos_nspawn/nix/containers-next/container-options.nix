@@ -120,7 +120,6 @@ in
         };
       };
     });
-    apply = lib.concatMapStringsSep " " ({ id, path }: "--load-credential=${id}:${path}");
     default = [ ];
     description = ''
       Credentials using the `LoadCredential=`-feature from

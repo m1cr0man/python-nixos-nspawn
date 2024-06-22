@@ -252,6 +252,9 @@ in
       services = { inherit radvd; };
 
       systemd = {
+        # Ensure it's enabled otherwise systemd.network.units will be empty.
+        network.enable = true;
+
         network.networks =
           foldlAttrs
             (acc: name: config: acc // optionalAttrs (config.network != null && config.zone == null) {
@@ -307,17 +310,21 @@ in
             serviceConfig = {
               TimeoutStartSec = timeoutStartSec;
               X-ActivationStrategy = activation.strategy;
-              ExecStart = optionals (credentials != "") [
-                ""
-                "${config.systemd.package}/bin/systemd-nspawn ${credentials} --quiet --keep-unit --boot --network-veth --settings=override --machine=%i"
-              ];
+              ExecStart =
+                let
+                  credsArgv = lib.concatMapStringsSep " " ({ id, path }: "'--load-credential=${id}:${path}'") credentials;
+                in
+                optionals (credentials != [ ]) [
+                  ""
+                  "${config.systemd.package}/bin/systemd-nspawn ${credsArgv} --quiet --keep-unit --boot --network-veth --settings=override --machine=%i"
+                ];
               ExecReload =
                 let
                   reloadScript =
                     if activation.reloadScript != null then activation.reloadScript
                     else
                       pkgs.writeShellScript "activate" ''
-                        pid=$(machinectl show ${container} --value --property Leader)
+                        pid=$(${config.systemd.package}/bin/machinectl show ${container} --value --property Leader)
                         ${pkgs.util-linux}/bin/nsenter -t "$pid" -m -u -U -i -n -p \
                           -- ${images.${container}.container.config.system.build.toplevel}/bin/switch-to-configuration test
                       '';

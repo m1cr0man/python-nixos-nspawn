@@ -21,7 +21,7 @@ rec {
     , modules ? [ ]
     }:
     let
-      shared = import ./containers-next/shared/nix { inherit (pkgs) lib; };
+      shared = import ./containers-next/shared.nix { inherit (pkgs) lib; };
       inherit (shared) ifacePrefix;
 
       containerOptions = import ./containers-next/container-options.nix {
@@ -45,20 +45,24 @@ rec {
               # the imperative container's configuration can be parsed.
               options.nixosContainer = containerOptions;
 
-              config.assertions = containerAssertions {
-                inherit lib; containerConfig = config.nixosContainer;
-              };
-            })
-            ({ config, ... }: {
-              # A bit of a hack.. Use the imperative container's config as a
-              # declarative container. This will fill in the required parts of
-              # the module configuration to generate the Systemd units.
-              nixos.containers.instances."${name}" = config.nixosContainer // {
-                system-config.imports = modules ++ [{
-                  # Add the nixosContainer option to the container itself
-                  # to prevent undefined option errors. It won't actually be evaluated.
-                  options.nixosContainer = containerOptions;
-                }];
+              config = {
+                assertions = containerAssertions {
+                  inherit lib; containerConfig = config.nixosContainer;
+                };
+
+                # Not necesssary when generating imperative containers
+                nixos.containers.enableAutostartService = false;
+
+                # A bit of a hack.. Use the imperative container's config as a
+                # declarative container. This will fill in the required parts of
+                # the module configuration to generate the Systemd units.
+                nixos.containers.instances."${name}" = config.nixosContainer // {
+                  system-config.imports = modules ++ [{
+                    # Add the nixosContainer option to the container itself
+                    # to prevent undefined option errors. It won't actually be evaluated.
+                    options.nixosContainer = containerOptions;
+                  }];
+                };
               };
             })
           ] ++ modules;
@@ -68,11 +72,14 @@ rec {
       containerSystem = containerInstance.system-config;
 
       nspawnUnit = host.config.environment.etc."systemd/nspawn/${name}.nspawn".source;
+      serviceOverrides = "${host.config.environment.etc."systemd/system".source}/systemd-nspawn@${name}.service.d/overrides.conf";
 
       # Only select network units defined by this module.
-      nspawnNetworks = (pkgs.lib.optionals (containerInstance.network != null && containerInstance.zone == null) [ "20-${ifacePrefix "veth"}-${name}" ]);
+      nspawnNetworks = pkgs.lib.optionals
+        (containerInstance.network != null && containerInstance.zone == null)
+        [ "20-${ifacePrefix "veth"}-${name}.network" ];
       networkUnits = builtins.map
-        (name: "${host.config.systemd.network.units."${name}".unit}/${name}")
+        (name: host.config.systemd.network.units."${name}".unit)
         nspawnNetworks;
     in
     pkgs.buildEnv {
@@ -81,6 +88,7 @@ rec {
       # e.g. importing the flake and then viewing the config attr
       # of a mkContainer result.
       passthru.config = containerSystem.config;
+      passthru.host = host.config;
       paths = [
         containerSystem.config.system.build.toplevel
         (pkgs.symlinkJoin {
@@ -94,7 +102,10 @@ rec {
             )
             # Grab any systemd units that need to be installed on the host
             # Since it's a single unit, we need to put it in a folder
-            (pkgs.linkFarm "nspawn-units" { "${name}.nspawn" = nspawnUnit; })
+            (pkgs.linkFarm "nspawn-units" ({
+              "${name}.nspawn" = nspawnUnit;
+              "service-overrides.conf" = serviceOverrides;
+            }))
           ] ++ networkUnits;
           # Move everything into a subfolder so that when buildEnv
           # flattens the paths we have a nixos-nspawn folder.

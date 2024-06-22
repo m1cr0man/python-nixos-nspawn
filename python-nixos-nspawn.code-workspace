@@ -11,7 +11,7 @@
 		"black-formatter.importStrategy": "fromEnvironment",
 		"python.formatting.blackPath": "black",
 		"python.formatting.provider": "black",
-		"python.languageServer": "Pylance",
+		"python.languageServer": "Jedi",
 		"python.defaultInterpreterPath": "${workspaceRoot}/.venv/bin/python3",
 		"python.testing.pytestEnabled": false,
 		"python.testing.unittestEnabled": true,

@@ -92,14 +92,14 @@
 
         # Example container
         nixosContainers.example = self.lib.mkContainer {
-          inherit nixpkgs system;
+          inherit nixpkgs system pkgs;
           name = "example";
           modules = [
             ({ pkgs, ... }: {
               system.stateVersion = "23.11";
               environment.systemPackages = [ pkgs.python311 ];
               nixosContainer.network.v4.addrPool = [ "10.151.1.1/24" ];
-              nixosContainer.forwardPorts = [{hostPort = 12345; containerPort = 12345; }];
+              nixosContainer.forwardPorts = [{ hostPort = 12345; containerPort = 12345; }];
             })
           ];
         };
