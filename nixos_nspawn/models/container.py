@@ -337,7 +337,8 @@ class Container(Printable):
         """Removes all files associated with the contanier."""
         self.__logger.info("Destroying files")
         for unit in self.__network_units:
-            unit.unlink(missing_ok=True)
+            link = self.__network_unit_dir / unit.name
+            link.unlink(missing_ok=True)
         self.unit_file.unlink(missing_ok=True)
         if self.__profile_dir.exists():
             rmtree(str(self.__profile_dir))
