@@ -82,7 +82,7 @@ class NixosNspawnManager(object):
         try:
             self.build(container, config, flake, system)
             self._check_network_zone(container)
-            container.write_nspawn_unit_file()
+            container.write_config_files()
             container.create_state_directories()
             sync()
             container.start()
@@ -114,7 +114,7 @@ class NixosNspawnManager(object):
 
         self.build(container, config, flake, system, update=True)
         self._check_network_zone(container)
-        container.write_nspawn_unit_file()
+        container.write_config_files()
         container.create_state_directories()
         sync()
 
@@ -128,6 +128,8 @@ class NixosNspawnManager(object):
         )
 
         container.rollback()
+        container.write_config_files()
+        container.create_state_directories()
         sync()
 
         container.activate_config(activation_strategy)

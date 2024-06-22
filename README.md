@@ -4,6 +4,11 @@ Rewrite of the Nix RFC 108 POC imperative container manager.
 
 # Installation
 
+You will need the following tools to get started:
+
+- Systemd version 256 or newer.
+- Nix (optionally with flake support enabled).
+
 nixos_nspawn can be installed as a flake from this repository.
 A super quick way to get started is:
 
