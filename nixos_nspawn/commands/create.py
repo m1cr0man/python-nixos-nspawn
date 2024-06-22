@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..constants import RC_CONTAINER_MISSING
-from ..metadata import system
+from ..metadata import default_system
 from ._command import BaseCommand, Command
 from ._shared import check_config_or_flake
 
@@ -22,9 +22,10 @@ class CreateCommand(BaseCommand, Command):
         parser.add_argument("--flake", help="Container configuration flake path", type=str)
         parser.add_argument(
             "--system",
-            help=f"The host platform name. The default ({system}) is selected at compile time.",
+            help=f"The host platform name. The default ({default_system})"
+            " is selected at compile time.",
             type=str,
-            default=system,
+            default=default_system,
         )
 
     def run(self) -> int:

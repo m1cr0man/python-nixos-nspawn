@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..constants import DEFAULT_NSPAWN_DIR
-from ..metadata import system
+from ..metadata import default_system
 from ..models import Container
 
 
@@ -52,22 +52,23 @@ class NixosNspawnManager(object):
         container: Container,
         config: Optional[Path] = None,
         flake: Optional[str] = None,
-        system: str = system,
+        system: str = default_system,
         update: bool = False,
     ) -> Path:
         if config:
             return container.build_nixos_config(config, update=update, show_trace=self.show_trace)
-        elif flake:
+        if flake:
             return container.build_flake_config(
                 flake, system=system, update=update, show_trace=self.show_trace
             )
+        raise AssertionError("Either a config or flake must be specified when calling build()")
 
     def create(
         self,
         name: str,
         config: Optional[Path] = None,
         flake: Optional[str] = None,
-        system: str = system,
+        system: str = default_system,
     ) -> Container:
         container = Container(unit_file=self.unit_file_dir / f"{name}.nspawn")
 
@@ -100,7 +101,7 @@ class NixosNspawnManager(object):
         container: Container,
         config: Optional[Path] = None,
         flake: Optional[str] = None,
-        system: str = system,
+        system: str = default_system,
         activation_strategy: Optional[str] = None,
     ) -> None:
         self.__logger.debug(

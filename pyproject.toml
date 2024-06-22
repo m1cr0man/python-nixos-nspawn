@@ -45,3 +45,6 @@ exclude = ["dist/*", "build/*", "__pycache__", ".git", ".vscode", "*.egg-info"]
 
 [tool.isort]
 profile = "black"
+
+[tool.pylint."messages control"]
+disable = ["C0114", "C0115", "C0116"]

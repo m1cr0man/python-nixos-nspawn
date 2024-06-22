@@ -1,3 +1,4 @@
+from collections.abc import Generator
 from json import load
 from logging import getLogger
 from os import getenv
@@ -13,7 +14,7 @@ from ..constants import (
     NIX_PROFILE_DIR,
     NSENTER_ARGS,
 )
-from ..metadata import system
+from ..metadata import default_system
 from ..utilities import CommandError, SystemdUnitParser, run_command
 from ._printable import Printable
 from .nix_generation import NixGeneration
@@ -40,13 +41,13 @@ class Container(Printable):
         self.__nspawn_data_dir = self.__nix_path / "nixos-nspawn"
         self.__network_unit_dir = self.unit_file.parent.parent / "network"
 
-        super(Container, self).__init__()
+        super().__init__()
 
     def __eq__(self, other: Union["Container", Any]) -> bool:
         return isinstance(other, Container) and self.unit_file == other.unit_file
 
     @property
-    def __network_units(self) -> list[Path]:
+    def __network_units(self) -> Generator[Path, None, None]:
         return self.__nspawn_data_dir.glob("*.network")
 
     @property
@@ -157,7 +158,11 @@ class Container(Printable):
         return self.__nix_path
 
     def build_flake_config(
-        self, flake: str, system: str = system, update: bool = False, show_trace: bool = False
+        self,
+        flake: str,
+        system: str = default_system,
+        update: bool = False,
+        show_trace: bool = False,
     ) -> Path:
         # Create the profile directory if necessary
         if not update:
@@ -200,7 +205,7 @@ class Container(Printable):
 
         for unit in self.__network_units:
             link = self.__network_unit_dir / unit.name
-            self.__logger.debug(f"{link} -> {unit}")
+            self.__logger.debug("%s -> %s", link, unit)
             link.unlink(missing_ok=True)
             link.symlink_to(unit)
 
@@ -235,7 +240,7 @@ class Container(Printable):
     def get_runtime_property(self, key: str, ignore_error: bool = False) -> str:
         self.__logger.debug("Reading runtime property '%s'", key)
         try:
-            rc, stdout = run_command(
+            _, stdout = run_command(
                 ["machinectl", "show", self.name, "--property", key, "--value"],
                 capture_stdout=True,
                 capture_stderr=ignore_error,
@@ -280,7 +285,7 @@ class Container(Printable):
         run_command(["nix-env", "-p", str(self.__nix_path), "--rollback"])
 
     def get_generations(self) -> list[NixGeneration]:
-        rc, stdout = run_command(
+        _, stdout = run_command(
             ["nix-env", "-p", str(self.__nix_path), "--list-generations"], capture_stdout=True
         )
         return [NixGeneration.from_list_output(gen) for gen in stdout.split("\n")]
