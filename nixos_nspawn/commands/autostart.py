@@ -36,6 +36,7 @@ class AutostartCommand(BaseCommand, Command):
                 logger.debug(f"Skipping container {container.unit_file} in state {container.state}")
             elif container.is_imperative and container.autostart:
                 results.append(container)
+                dry_run or container.write_config_files()
                 dry_run or container.start()
             else:
                 logger.debug(

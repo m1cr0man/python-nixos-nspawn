@@ -4,6 +4,7 @@ from logging import getLogger
 from os import getenv
 from pathlib import Path
 from shutil import rmtree
+import shutil
 from time import sleep
 from typing import Any, Optional, Union
 
@@ -197,21 +198,18 @@ class Container(Printable):
         return self.__nix_path
 
     def _apply_service_overrides(self) -> None:
+        # In the future, we can use systemctl edit --stdin.
+        # --stdin was added in v256, which isn't broadly in use yet.
         overrides = self.__service_overrides
-        self.__logger.debug("Applying Systemd services overrides from %s", overrides)
-        with overrides.open("rb") as overrides_fd:
-            # --stdin is a systemd 256 feature.
-            # Consider not using this for more widespread compatibility.
-            run_command(
-                [
-                    "systemctl",
-                    "edit",
-                    "--runtime",
-                    "--stdin",
-                    self.__service_name,
-                ],
-                stdin=overrides_fd,
-            )
+        override_file = Path("/run/systemd/system", self.__service_name + ".d", "override.conf")
+
+        self.__logger.debug(
+            "Applying Systemd services overrides from %s to %s", overrides, override_file
+        )
+        override_file.parent.mkdir(mode=0o755, exist_ok=True, parents=True)
+        shutil.copyfile(overrides, override_file)
+        # There's no need to do a daemon-reload unless we are trying to reload the container.
+        # Start/stop/restart will all automatically reload the file.
 
     def _revert_service_overrides(self) -> None:
         run_command(
@@ -259,7 +257,8 @@ class Container(Printable):
         etc.mkdir(mode=0o755, parents=True, exist_ok=True)
         self.__state_dir.chmod(mode=0o755)
         etc.chmod(mode=0o755)
-        (etc / "os-release").touch(mode=0o644, exist_ok=True)
+        if not (os_release := etc / "os-release").exists():
+            os_release.touch(mode=0o644, exist_ok=True)
 
         # Create non-existent directories for bind mounts also
         mount: str = ""
@@ -293,12 +292,10 @@ class Container(Printable):
 
     def start(self) -> None:
         self.__logger.info("Starting")
-        self._apply_service_overrides()
         run_command(["machinectl", "start", self.name])
 
     def reboot(self) -> None:
         self.__logger.info("Rebooting")
-        self._apply_service_overrides()
         run_command(["machinectl", "reboot", self.name])
 
     def poweroff(self, wait: int = 10) -> None:
@@ -310,6 +307,9 @@ class Container(Printable):
 
     def reload(self) -> None:
         self.__logger.info("Reloading")
+        # The unit overrides file will have been modified. We need
+        # to reload systemd to ensure it has been picked up.
+        run_command(["systemctl", "daemon-reload"])
         run_command(["systemctl", "reload", self.__service_name])
 
     def rollback(self) -> None:
