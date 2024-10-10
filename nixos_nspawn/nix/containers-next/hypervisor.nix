@@ -198,7 +198,8 @@ in
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
-          Restart = "no";
+          Restart = "on-failure";
+          RestartSec = "30";
           ExecStart = "${pkgs.nixos-nspawn}/bin/nixos-nspawn autostart";
         };
       };
@@ -298,6 +299,8 @@ in
           nameValuePair "systemd-nspawn@${container}" {
             overrideStrategy = "asDropin";
 
+            # Force cgroupv2
+            # https://github.com/NixOS/nixpkgs/pull/198526
             environment.SYSTEMD_NSPAWN_UNIFIED_HIERARCHY = "1";
 
             preStart = mkBefore ''

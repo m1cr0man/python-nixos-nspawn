@@ -1,7 +1,6 @@
 from argparse import ArgumentParser
-from logging import getLogger
 
-from ..models import Container
+from ..models import Container, ContainerError
 from ._command import BaseCommand, Command
 
 
@@ -25,23 +24,28 @@ class AutostartCommand(BaseCommand, Command):
 
     def run(self) -> int:
         dry_run: bool = self.parsed_args.dry_run
-        logger = getLogger("nixos_nspawn")
         containers = self.manager.list()
         results: list[Container] = []
 
         for container in containers:
             if not container.is_managed:
-                logger.debug(f"Skipping unmanaged container {container.unit_file}")
+                self._rprint(f"Skipping unmanaged container {container.unit_file}")
             elif container.state != "powered off":
-                logger.debug(f"Skipping container {container.unit_file} in state {container.state}")
+                self._rprint(f"Skipping container {container.unit_file} in state {container.state}")
             elif container.is_imperative and container.autostart:
                 results.append(container)
                 dry_run or container.write_config_files()
-                dry_run or container.start()
+                retries = 0
+                while retries < 3:
+                    try:
+                        dry_run or container.start()
+                        break
+                    except ContainerError as err:
+                        self._rprint(f"Failed to start container: {err}. Retries :{retries}/3")
+                        retries += 1
             else:
-                logger.debug(
-                    f"Skipping {container.is_imperative and 'imperative' or 'declarative'} container {container.name}"
-                )
+                typ = container.is_imperative and "imperative" or "declarative"
+                self._rprint(f"Skipping {typ} container {container.name}")
 
         action = "Would start" if dry_run else "Started"
         self._rprint(f"{action} {len(results)} of {len(containers)} containers:")
