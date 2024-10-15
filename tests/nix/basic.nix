@@ -1,9 +1,11 @@
-{nixpkgs, self}: let
-  testsRoot = "${nixpkgs}/nixos/tests";
-in import "${testsRoot}/make-test-python.nix" ({ pkgs, lib, ... }: let
-  inherit (import "${testsRoot}/ssh-keys.nix" pkgs)
+{ self, config, pkgs, lib, ... }:
+let
+  inherit (import "${pkgs.path}/nixos/tests/ssh-keys.nix" pkgs)
     snakeOilPrivateKey snakeOilPublicKey;
-in {
+  stateVersion = config.system.stateVersion;
+  v4Pool = [ "192.168.254.0/24" ];
+in
+{
   name = "container-tests";
   meta = with pkgs.lib.maintainers; {
     maintainers = [ ma27 m1cr0man ];
@@ -14,14 +16,12 @@ in {
   nodes.client = { pkgs, ... }: {
     virtualisation.vlans = [ 1 ];
     networking.useNetworkd = true;
-    networking.firewall.extraCommands = ''
-      ip46tables -A INPUT -i eth1 -j ACCEPT
-    '';
+    networking.firewall.trustedInterfaces = [ "eth1" ];
     systemd.network.networks."10-eth1" = {
       matchConfig.Name = "eth1";
       address = [ "fd23::1/64" ];
       routes = [
-        { routeConfig.Destination = "fd24::1/64"; }
+        { Destination = "fd24::1/64"; }
       ];
     };
   };
@@ -45,7 +45,7 @@ in {
     # proxies NDP traffic of container IPs.
     services.ndppd = {
       enable = true;
-      proxies.eth1.rules."fd24::2/64" = {};
+      proxies.eth1.rules."fd24::2/64" = { };
     };
 
     # Needed to make sure that the DHCPServer of `systemd-networkd' properly works and
@@ -60,7 +60,8 @@ in {
       listenOnIpv6 = [ "fd24::1" ];
       cacheNetworks = [ "fd24::/64" ];
       zones = [
-        { name = ".";
+        {
+          name = ".";
           master = true;
           file = pkgs.writeText "root.zone" ''
             $TTL 3600
@@ -76,12 +77,13 @@ in {
       ];
     };
 
-    # Reverse-proxy to expose the contents of container0:80
+    # Reverse-proxy to expose the contents of container0:80.
+    # Address hard-coded as Nginx will not attempt nss-mymachines lookup
+    # and LLMNR is not permitted in the firewall by default.
     services.nginx = {
       enable = true;
       virtualHosts."localhost" = {
-        # TODO container name resolution not working
-        locations."/".proxyPass = "http://[fd24::2]:80";
+        locations."/".proxyPass = "http://[fd24::2]";
       };
     };
 
@@ -94,7 +96,7 @@ in {
         DNS = "fd24::1";
       };
       routes = [
-        { routeConfig.Destination = "fd23::1/64"; }
+        { Destination = "fd23::1/64"; }
       ];
     };
 
@@ -109,16 +111,17 @@ in {
     # container0: use ULA IPv6 addr and let nginx listen to it. Used
     #  to demonstrate that containers can serve to the outer network.
     systemd.network.networks."20-ve-container0".routes = [
-      { routeConfig.Destination = "fd24::2"; }
+      { Destination = "fd24::2"; }
     ];
     nixos.containers.instances.container0 = {
       network.v6.static = {
         containerPool = [ "fd24::2/64" ];
         hostAddresses = [ "fd24::3/64" ];
       };
-      network.v6.addrPool = lib.mkForce [];
+      network.v6.addrPool = lib.mkForce [ ];
       credentials = [
-        { id = "snens";
+        {
+          id = "snens";
           path = "${pkgs.writeText "totallysecret" "abc"}";
         }
       ];
@@ -144,12 +147,11 @@ in {
     #  and to test DNS from the host network.
     systemd.network.networks."20-ve-container1".networkConfig.DNS = "fd24::1";
     nixos.containers.instances.container1 = {
-      inherit nixpkgs;
       sharedNix = false;
       activation.strategy = "restart";
       zone = "foo";
-      network.v6.addrPool = lib.mkForce [];
-      network.v4.addrPool = lib.mkForce [];
+      network.v6.addrPool = lib.mkForce [ ];
+      network.v4.addrPool = lib.mkForce [ ];
       network.v4.static.containerPool = [ "10.100.200.10/24" ];
       system-config = { pkgs, ... }: {
         environment.systemPackages = [ pkgs.hello pkgs.nmap pkgs.dnsutils ];
@@ -163,19 +165,19 @@ in {
     systemd.nspawn.container2.execConfig.ResolvConf = "bind-host";
     nixos.containers.instances.container2 = {
       zone = "foo";
-      network.v6.addrPool = lib.mkForce [];
-      network.v4.addrPool = lib.mkForce [];
+      network.v6.addrPool = lib.mkForce [ ];
+      network.v4.addrPool = lib.mkForce [ ];
       network.v4.static.containerPool = [ "10.100.200.11/24" ];
     };
 
     # publicnet: share the network with the host entirely, i.e. no new namespace.
-    nixos.containers.instances.publicnet = {};
+    nixos.containers.instances.publicnet = { };
     systemd.nspawn.publicnet.networkConfig.VirtualEthernet = "no";
 
     # ephemeral: containers with state cleared after a reboot.
     nixos.containers.instances.ephemeral = {
       ephemeral = true;
-      network = {};
+      network = { };
     };
   };
 
@@ -233,7 +235,7 @@ in {
 
     with subtest("machinectl reboot"):
         server.succeed("machinectl reboot container0")
-        server.wait_until_succeeds("ping -4 container0 -c3 >&2")
+        server.wait_until_succeeds("ping -6 container0 -c3 >&2")
 
     with subtest("Dynamic networking"):
         # Test IPv4LL, DHCP & SLAAC addrs reachability.
@@ -318,4 +320,4 @@ in {
     client.shutdown()
     server.shutdown()
   '';
-})
+}

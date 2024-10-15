@@ -132,6 +132,7 @@ dmypy.json
 result
 result/
 .direnv
+.nixos-test-history
 
 # Custom
 *.pex
