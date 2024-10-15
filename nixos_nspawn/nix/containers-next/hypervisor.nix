@@ -1,13 +1,14 @@
 { pkgs, lib, config, ... }:
 
-with lib;
-
 let
   cfg = config.nixos.containers.instances;
 
   shared = import ./shared.nix { inherit lib; };
 
   inherit (shared) ifacePrefix mkNetworkingOpts;
+
+  inherit (lib) mkOption mkEnableOption types mkIf mkMerge mkBefore mkDefault;
+  inherit (lib) concatMapStrings attrNames elem optionals;
 
   yesNo = x: if x then "yes" else "no";
 
@@ -19,7 +20,7 @@ let
     ''
       interface ${ifacePrefix type}-${name} {
         AdvSendAdvert on;
-        ${flip concatMapStrings v6Pool (x: ''
+        ${lib.flip concatMapStrings v6Pool (x: ''
           prefix ${x} {
             AdvOnLink on;
             AdvAutonomous on;
@@ -34,10 +35,10 @@ let
   interfaces.zones = attrNames config.nixos.containers.zones;
   radvd = {
     enable = with interfaces; containers != [ ] || zones != [ ];
-    config = concatStringsSep "\n" [
+    config = builtins.concatStringsSep "\n" [
       (concatMapStrings
         (x: mkRadvdSection "veth" x cfg.${x}.network.v6.addrPool)
-        (filter
+        (lib.filter
           (n: cfg.${n}.network != null && cfg.${n}.zone == null)
           (attrNames cfg)))
       (concatMapStrings
@@ -67,7 +68,7 @@ let
   };
 
   recUpdate3 = a: b: c:
-    recursiveUpdate a (recursiveUpdate b c);
+    lib.recursiveUpdate a (lib.recursiveUpdate b c);
 
   mkForwardPorts = map
     (
@@ -104,7 +105,7 @@ let
               "/nix/store"
               "/nix/var/nix/profiles"
               "/nix/var/nix/profiles/per-nspawn"
-            ] ++ optional config.mountDaemonSocket "/nix/var/nix/db";
+            ] ++ lib.optional config.mountDaemonSocket "/nix/var/nix/db";
           })
           (mkIf (config.sharedNix && config.mountDaemonSocket) {
             Bind = [ "/nix/var/nix/daemon-socket" ];
@@ -145,7 +146,7 @@ let
       })
     ];
 
-  images = mapAttrs mkImage cfg;
+  images = lib.mapAttrs mkImage cfg;
 in
 {
   options.nixos.containers = {
@@ -216,7 +217,7 @@ in
           assertion = config.networking.useNetworkd;
           message = "Only networkd is supported!";
         }
-      ] ++ foldlAttrs
+      ] ++ lib.foldlAttrs
         (acc: n: inst: acc ++ [
           {
             assertion = inst.zone != null -> (config.nixos.containers.zones != null && config.nixos.containers.zones?${inst.zone});
@@ -257,8 +258,8 @@ in
         network.enable = true;
 
         network.networks =
-          foldlAttrs
-            (acc: name: config: acc // optionalAttrs (config.network != null && config.zone == null) {
+          lib.foldlAttrs
+            (acc: name: config: acc // lib.optionalAttrs (config.network != null && config.zone == null) {
               "20-${ifacePrefix "veth"}-${name}" = {
                 matchConfig = mkMatchCfg "veth" name;
                 address = config.network.v4.addrPool
@@ -275,7 +276,7 @@ in
             })
             { }
             cfg
-          // foldlAttrs
+          // lib.foldlAttrs
             (acc: name: zone: acc // {
               "20-${ifacePrefix "zone"}-${name}" = {
                 matchConfig = mkMatchCfg "zone" name;
@@ -294,12 +295,12 @@ in
         tmpfiles.rules = [
           "d /nix/var/nix/profiles/per-nspawn 0755 root root"
         ];
-        nspawn = mapAttrs (const mkContainer) images;
+        nspawn = lib.mapAttrs (lib.const mkContainer) images;
         targets.machines.wants = map (x: "systemd-nspawn@${x}.service") (attrNames (
-          filterAttrs (n: v: v.activation.autoStart) cfg
+          lib.filterAttrs (n: v: v.activation.autoStart) cfg
         ));
-        services = flip mapAttrs' cfg (container: { activation, timeoutStartSec, credentials, ... }:
-          nameValuePair "systemd-nspawn@${container}" {
+        services = lib.flip lib.mapAttrs' cfg (container: { activation, timeoutStartSec, credentials, ... }:
+          lib.nameValuePair "systemd-nspawn@${container}" {
             overrideStrategy = "asDropin";
 
             # Force cgroupv2
