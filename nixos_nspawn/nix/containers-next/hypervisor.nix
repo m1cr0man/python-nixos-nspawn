@@ -291,6 +291,9 @@ in
             { }
             config.nixos.containers.zones;
 
+        tmpfiles.rules = [
+          "d /nix/var/nix/profiles/per-nspawn 0755 root root"
+        ];
         nspawn = mapAttrs (const mkContainer) images;
         targets.machines.wants = map (x: "systemd-nspawn@${x}.service") (attrNames (
           filterAttrs (n: v: v.activation.autoStart) cfg
