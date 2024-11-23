@@ -1,53 +1,50 @@
-{nixpkgs, self}: let
-  testsRoot = "${nixpkgs}/nixos/tests";
-in import "${testsRoot}/make-test-python.nix" ({ pkgs, lib, ... }: {
+{ self, pkgs, lib, ... }:
+{
   name = "containers-next-nat";
-  meta.maintainers = with lib.maintainers; [ ma27 ];
+  meta.maintainers = with lib.maintainers; [ ma27 m1cr0man ];
 
-  nodes = {
-    client = {
-      networking.useNetworkd = true;
-      systemd.network.networks."10-eth1" = {
-        matchConfig.Name = "eth1";
-        address = [ "fd23::1/64" "192.168.1.1/24" ];
-        routes = [
-          { routeConfig.Destination = "fd24::1/64"; }
-        ];
-      };
-
-      # Check for NAT by making sure that only the host's addresses can ping
-      # this machine.
-      networking.firewall.extraCommands = ''
-        iptables -A INPUT -p icmp -s 192.168.1.2 -j ACCEPT
-        ip6tables -A INPUT -p icmp -s fd24::1 -j ACCEPT
-        ip46tables -A INPUT -p icmp -j REJECT
-      '';
+  nodes.client = {
+    systemd.network.networks."10-eth1" = {
+      matchConfig.Name = "eth1";
+      address = [ "fd23::1/64" "192.168.1.1/24" ];
+      routes = [
+        { Destination = "fd24::1/64"; }
+      ];
     };
 
-    host = {
-      imports = [
-        self.nixosModules.hypervisor
+    # Check for NAT by making sure that only the host's addresses can ping
+    # this machine.
+    networking.firewall.extraCommands = ''
+      iptables -A INPUT -p icmp -s 192.168.1.2 -j ACCEPT
+      ip6tables -A INPUT -p icmp -s fd24::1 -j ACCEPT
+      ip46tables -A INPUT -p icmp -j REJECT
+    '';
+  };
+
+  nodes.host = {
+    imports = [
+      self.nixosModules.hypervisor
+    ];
+
+    systemd.network.networks."10-eth1" = {
+      matchConfig.Name = "eth1";
+      address = [ "fd24::1/64" "192.168.1.2/24" ];
+      networkConfig.IPForward = "yes";
+      routes = [
+        { Destination = "fd23::1/64"; }
       ];
+    };
 
-      networking.useNetworkd = true;
-      systemd.network.networks."10-eth1" = {
-        matchConfig.Name = "eth1";
-        address = [ "fd24::1/64" "192.168.1.2/24" ];
-        networkConfig.IPForward = "yes";
-        routes = [
-          { routeConfig.Destination = "fd23::1/64"; }
-        ];
-      };
+    networking.firewall.allowedUDPPorts = [ 53 67 68 546 547 ];
 
-      networking.firewall.allowedUDPPorts = [ 53 67 68 546 547 ];
-
-      nixos.containers.instances = with lib; mapAttrs (const (nat: {
+    nixos.containers.instances = with lib; mapAttrs
+      (const (nat: {
         network = lib.genAttrs [ "v4" "v6" ] (const { inherit nat; });
-      })) {
+      }))
+      {
         withnat = true;
         nonat = false;
       };
-    };
   };
 
   testScript = ''
@@ -72,4 +69,4 @@ in import "${testsRoot}/make-test-python.nix" ({ pkgs, lib, ... }: {
     host.shutdown()
     client.shutdown()
   '';
-})
+}

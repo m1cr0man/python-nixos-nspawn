@@ -13,6 +13,7 @@ let
     # Per-node default options. Think of this as a module imported on all nodes.
     defaults = {
       system.stateVersion = "24.11";
+      networking.useNetworkd = true;
     };
 
     # Required to avoid dupe import of nixpkgs + ensure overlays are available
@@ -23,4 +24,6 @@ let
 in
 {
   basic = runTest ./basic.nix;
+  macvlan = runTest ./macvlan.nix;
+  nat = runTest ./nat.nix;
 }

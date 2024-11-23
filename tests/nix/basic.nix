@@ -15,7 +15,6 @@ in
   # of containers hosted on a different server.
   nodes.client = { pkgs, ... }: {
     virtualisation.vlans = [ 1 ];
-    networking.useNetworkd = true;
     networking.firewall.trustedInterfaces = [ "eth1" ];
     systemd.network.networks."10-eth1" = {
       matchConfig.Name = "eth1";
@@ -37,7 +36,6 @@ in
     virtualisation.vlans = [ 1 ];
     networking = {
       firewall.allowedTCPPorts = [ 80 ];
-      useNetworkd = true;
     };
 
     # `server' is supposed to use `fd24::1/64`. However the test network in QEMU
@@ -258,7 +256,7 @@ in
         )
 
         server.succeed(
-            "systemd-run -M container2 --pty --quiet /bin/sh --login -c 'resolvectl query container2 | grep 127.0.0.2' >&2"
+            "systemd-run -M container2 --pty --quiet /bin/sh --login -c 'resolvectl query container2 | grep 127.0.0.1' >&2"
         )
 
     with subtest("Ephemeral"):

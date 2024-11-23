@@ -16,12 +16,11 @@
 # use systemd-nspawn itself for containers (and consider NixOS just a thin abstraction layer),
 # this isn't a big deal IMHO.
 
-{nixpkgs, self}: let
-  testsRoot = "${nixpkgs}/nixos/tests";
-in import "${testsRoot}/make-test-python.nix" ({ pkgs, lib, ... }: {
+{ self, pkgs, lib, ... }:
+{
   name = "containers-next-macvlan";
   meta = with lib.maintainers; {
-    maintainers = [ ma27 ];
+    maintainers = [ ma27 m1cr0man ];
   };
 
   nodes.client = { pkgs, ... }: {
@@ -33,7 +32,6 @@ in import "${testsRoot}/make-test-python.nix" ({ pkgs, lib, ... }: {
       self.nixosModules.hypervisor
     ];
 
-    networking.useNetworkd = true;
     virtualisation.vlans = [ 2 ];
 
     systemd.network.networks."40-eth1" = {
@@ -41,8 +39,8 @@ in import "${testsRoot}/make-test-python.nix" ({ pkgs, lib, ... }: {
       networkConfig.DHCP = lib.mkForce "yes";
       networkConfig.MACVLAN = "mv-eth1-host";
       linkConfig.RequiredForOnline = "no";
-      address = lib.mkForce [];
-      addresses = lib.mkForce [];
+      address = lib.mkForce [ ];
+      addresses = lib.mkForce [ ];
     };
 
     # Even though it's tempting to name this `mv-eth1`, this will actually break
@@ -72,29 +70,40 @@ in import "${testsRoot}/make-test-python.nix" ({ pkgs, lib, ... }: {
     systemd.nspawn.vlandemo.networkConfig.MACVLAN = "eth1";
     systemd.nspawn.ephvlan.networkConfig.MACVLAN = "eth1";
 
-    nixos.containers = let
-      mkNetworkCfg = index: {
-        systemd.network = {
-          networks."10-mv-eth1" = {
-            matchConfig.Name = "mv-eth1";
-            address = [ "192.168.2.${toString index}/24" ];
-          };
-          netdevs."10-mv-eth1" = {
-            netdevConfig.Name = "mv-eth1";
-            netdevConfig.Kind = "veth";
+    nixos.containers =
+      let
+        mkNetworkCfg = index: {
+          systemd.network = {
+            networks."10-mv-eth1" = {
+              matchConfig.Name = "mv-eth1";
+              address = [ "192.168.2.${toString index}/24" ];
+            };
+            netdevs."10-mv-eth1" = {
+              netdevConfig.Name = "mv-eth1";
+              netdevConfig.Kind = "veth";
+            };
           };
         };
+      in
+      {
+        instances.vlandemo.system-config = mkNetworkCfg 5;
+        instances.ephvlan = {
+          ephemeral = true;
+          system-config = mkNetworkCfg 9;
+        };
       };
-    in {
-      instances.vlandemo.system-config = mkNetworkCfg 5;
-      instances.ephvlan = {
-        ephemeral = true;
-        system-config = mkNetworkCfg 9;
-      };
-    };
   };
 
   testScript = ''
+    import time
+
+    def wait_until_stopped(machine: Machine, unit: str) -> None:
+      while True:
+        info = machine.get_unit_info(unit)
+        if info.get("ActiveState") == "inactive":
+          return
+        time.sleep(1)
+
     start_all()
 
     macvlan.wait_for_unit("multi-user.target")
@@ -109,11 +118,11 @@ in import "${testsRoot}/make-test-python.nix" ({ pkgs, lib, ... }: {
     with subtest("ephemeral w/ macvlan"):
         macvlan.succeed("ping -c3 192.168.2.9 -c3 >&2")
         macvlan.succeed("machinectl poweroff ephvlan")
-        macvlan.wait_until_unit_stops("systemd-nspawn@ephvlan")
+        wait_until_stopped(macvlan, "systemd-nspawn@ephvlan")
         macvlan.succeed("machinectl start ephvlan")
         macvlan.wait_until_succeeds("ping -c3 192.168.2.9 -c3 >&2")
 
     macvlan.succeed("machinectl poweroff vlandemo")
     macvlan.succeed("machinectl poweroff ephvlan")
   '';
-})
+}
