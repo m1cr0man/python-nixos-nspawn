@@ -1,6 +1,7 @@
 { pkgs, lib, config, ... }:
 
 let
+  hostConfig = config;
   cfg = config.nixos.containers.instances;
 
   shared = import ./shared.nix { inherit lib; };
@@ -165,7 +166,10 @@ in
     instances = mkOption {
       default = { };
       type = types.attrsOf (types.submodule ({ name, config, ... }: {
-        options = import ./container-options.nix { inherit pkgs lib name config; declarative = true; };
+        options = import ./container-options.nix {
+          inherit pkgs lib name config hostConfig;
+          declarative = true;
+        };
       }));
 
       description = ''

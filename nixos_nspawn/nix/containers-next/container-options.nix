@@ -1,4 +1,4 @@
-{ pkgs, lib, name, declarative ? true, config ? null, ... }:
+{ pkgs, lib, name, declarative ? true, config ? null, hostConfig ? null, ... }:
 let
   shared = import ./shared.nix { inherit lib; };
 
@@ -232,7 +232,8 @@ in
 
   system-config = mkOption {
     description = ''
-      NixOS configuration for the container. See {manpage}`configuration.nix(5)` for available options.
+      NixOS configuration for the container.
+      See {manpage}`configuration.nix(5)` for available options.
     '';
     default = { };
     type = mkOptionType {
@@ -260,6 +261,9 @@ in
           ./container-profile.nix
           ({ pkgs, ... }: {
             networking.hostName = lib.mkDefault name;
+            system.stateVersion = mkIf
+              (hostConfig != null)
+              (lib.mkDefault hostConfig.system.stateVersion);
             systemd.network.networks."20-host0" = mkIf (config.network != null) {
               name = "host0";
               address = with config.network; v4.static.containerPool ++ v6.static.containerPool;
