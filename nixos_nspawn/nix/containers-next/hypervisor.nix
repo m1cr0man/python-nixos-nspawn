@@ -62,7 +62,8 @@ let
       else if v4Nat then "ipv4"
       else if v6Nat then "ipv6"
       else "no";
-    IPForward = "yes";
+    IPv4Forwarding = "yes";
+    IPv6Forwarding = "yes";
     LLDP = "yes";
     EmitLLDP = "customer-bridge";
     IPv6AcceptRA = "no";
@@ -92,23 +93,27 @@ let
           Parameters = "${container.config.system.build.toplevel}/init";
           Ephemeral = yesNo config.ephemeral;
           KillSignal = "SIGRTMIN+3";
-          PrivateUsers = mkDefault "yes";
+          PrivateUsers = mkDefault "pick";
           LinkJournal = mkDefault (if config.ephemeral then "auto" else "guest");
           X-ActivationStrategy = config.activation.strategy;
         };
         filesConfig = mkMerge [
           {
-            PrivateUsersOwnership = mkDefault "auto";
+            PrivateUsersOwnership = mkDefault "chown";
             Bind = config.bindMounts;
           }
           (mkIf config.sharedNix {
             BindReadOnly = [
+              # FIXME should really use rootidmap option here,
+              # but it is not supported on all filesystems.
+              # Logrotate for example doesn't like the mismatching ID.
               "/nix/store"
               "/nix/var/nix/profiles"
               "/nix/var/nix/profiles/per-nspawn"
-            ] ++ lib.optional config.mountDaemonSocket "/nix/var/nix/db";
+            ];
           })
           (mkIf (config.sharedNix && config.mountDaemonSocket) {
+            BindReadOnly = [ "/nix/var/nix/db" ];
             Bind = [ "/nix/var/nix/daemon-socket" ];
           })
         ];
@@ -194,8 +199,8 @@ in
   };
 
   config = mkMerge [
-    {
-      systemd.services.nixos-nspawn-autostart = mkIf (config.nixos.containers.enableAutostartService) {
+    (mkIf (config.nixos.containers.enableAutostartService) {
+      systemd.services.nixos-nspawn-autostart = {
         description = "Automatically starts imperative containers on system boot";
         wantedBy = [ "machines.target" ];
         before = [ "machines.target" ];
@@ -208,7 +213,7 @@ in
           ExecStart = "${pkgs.nixos-nspawn}/bin/nixos-nspawn autostart";
         };
       };
-    }
+    })
     (mkIf (cfg != { }) {
       assertions = [
         {
@@ -256,6 +261,30 @@ in
         cfg;
 
       services = { inherit radvd; };
+
+      # In order for systemd-nspawn to know the container's configuration, write a JSON file in etc
+      # Instead of creating a drv for each json file, write them all in one runCommand.
+      environment.etc."nixos-nspawn/declarative.d".source =
+        let
+          jsonCfg = containerConfig:
+            builtins.toJSON (
+              builtins.removeAttrs containerConfig [ "system-config" "nixpkgs" "toplevel" ]
+            );
+          writers = lib.foldlAttrs
+            (acc: name: containerConfig: acc + ''
+              # START ${name}
+              cat > '${name}.json' << 'EOF'
+              ${jsonCfg containerConfig}
+              EOF
+              # END ${name}
+            '')
+            ""
+            cfg;
+        in
+        pkgs.runCommand "delcarative-container-jsons" { } (''
+          mkdir $out
+          cd $out
+        '' + writers);
 
       systemd = {
         # Ensure it's enabled otherwise systemd.network.units will be empty.
@@ -320,7 +349,6 @@ in
 
             serviceConfig = {
               TimeoutStartSec = timeoutStartSec;
-              X-ActivationStrategy = activation.strategy;
               ExecStart =
                 let
                   credsArgv = lib.concatMapStringsSep " " ({ id, path }: "'--load-credential=${id}:${path}'") credentials;
@@ -329,18 +357,12 @@ in
                   ""
                   "${config.systemd.package}/bin/systemd-nspawn ${credsArgv} --quiet --keep-unit --boot --network-veth --settings=override --machine=%i"
                 ];
-              ExecReload =
-                let
-                  reloadScript =
-                    if activation.reloadScript != null then activation.reloadScript
-                    else
-                      pkgs.writeShellScript "activate" ''
-                        pid=$(${config.systemd.package}/bin/machinectl show '${container}' --value --property Leader)
-                        ${pkgs.util-linux}/bin/nsenter -t "$pid" -m -u -U -i -n -p \
-                          -- ${images.${container}.container.config.system.build.toplevel}/bin/switch-to-configuration test
-                      '';
-                in
-                mkIf (elem activation.strategy [ "reload" "dynamic" ]) (builtins.toString reloadScript);
+              ExecReload = if activation.reloadScript != null then activation.reloadScript else
+              pkgs.writeShellScript "activate" ''
+                pid=$(${config.systemd.package}/bin/machinectl show '${container}' --value --property Leader)
+                ${pkgs.util-linux}/bin/nsenter -t "$pid" -m -u -U -i -n -p \
+                  -- ${images.${container}.container.config.system.build.toplevel}/bin/switch-to-configuration test
+              '';
             };
           }
         );

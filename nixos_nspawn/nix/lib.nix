@@ -2,7 +2,7 @@ rec {
 
   containerProfileModule = import ./containers-next/container-profile.nix;
 
-  containerAssertions = { containerConfig, lib, ... }: [
+  containerAssertions = { containerConfig, lib }: [
     {
       assertion = containerConfig.sharedNix;
       message = "Experimental 'sharedNix'-feature isn't supported for imperative containers!";
@@ -34,7 +34,10 @@ rec {
       # This allows us to generate the necessary Systemd unit files
       # for the container in Nix. They are put in place by the Python
       # code after evaluation.
-      host = import "${nixpkgs}/nixos/lib/eval-config.nix"
+      # FIXME this is bad. For any service enabled in the container, it is also enabled
+      # for this virtual hypervisor. We are generating two copies of the same system basically.
+      # All we want is the systemd nspawn + network units.
+      host = import "${pkgs.path}/nixos/lib/eval-config.nix"
         {
           inherit pkgs system;
           inherit (pkgs) lib;
@@ -57,10 +60,14 @@ rec {
                 # declarative container. This will fill in the required parts of
                 # the module configuration to generate the Systemd units.
                 nixos.containers.instances."${name}" = config.nixosContainer // {
+                  declarative = lib.mkForce false;
                   system-config.imports = modules ++ [{
                     # Add the nixosContainer option to the container itself
                     # to prevent undefined option errors. It won't actually be evaluated.
                     options.nixosContainer = containerOptions;
+                    config.assertions = containerAssertions {
+                      inherit lib; containerConfig = config.nixosContainer;
+                    };
                   }];
                 };
               };
@@ -71,8 +78,10 @@ rec {
       containerInstance = host.config.nixos.containers.instances."${name}";
       containerSystem = containerInstance.system-config;
 
-      nspawnUnit = host.config.environment.etc."systemd/nspawn/${name}.nspawn".source;
-      serviceOverrides = "${host.config.environment.etc."systemd/system".source}/systemd-nspawn@${name}.service.d/overrides.conf";
+      hostEtc = host.config.environment.etc;
+      nspawnUnit = hostEtc."systemd/nspawn/${name}.nspawn".source;
+      serviceOverrides = "${hostEtc."systemd/system".source}/systemd-nspawn@${name}.service.d/overrides.conf";
+      jsonConfig = "${hostEtc."nixos-nspawn/declarative.d".source}/${name}.json";
 
       # Only select network units defined by this module.
       nspawnNetworks = pkgs.lib.optionals
@@ -94,17 +103,12 @@ rec {
         (pkgs.symlinkJoin {
           name = "nixos-nspawn-data";
           paths = [
-            # We need to add a JSON copy of the nixosContainer options so that
-            # nixos_nspawn can generate the relevant systemd units.
-            (pkgs.writeTextDir
-              "data.json"
-              (builtins.toJSON host.config.nixosContainer)
-            )
-            # Grab any systemd units that need to be installed on the host
+            # Grab any config files that need to be installed on the host
             # Since it's a single unit, we need to put it in a folder
-            (pkgs.linkFarm "nspawn-units" ({
+            (pkgs.linkFarm "nspawn-data" ({
               "${name}.nspawn" = nspawnUnit;
               "service-overrides.conf" = serviceOverrides;
+              "data.json" = jsonConfig;
             }))
           ] ++ networkUnits;
           # Move everything into a subfolder so that when buildEnv

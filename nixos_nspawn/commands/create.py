@@ -40,6 +40,7 @@ class CreateCommand(BaseCommand, Command):
         try:
             container = self.manager.create(name=name, config=config, flake=flake, system=system)
         except ValueError:
+            # FIXME I'm not sure how I ever came to the conlusion that ValueError is a dupe error
             self._rprint(f"[red]Container [bold]{name}[/bold] already exists![/red]")
             # Distinguishable return code from other exceptions
             return RC_CONTAINER_MISSING

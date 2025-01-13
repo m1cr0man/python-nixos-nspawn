@@ -1,6 +1,7 @@
 { pkgs, lib, ... }:
 let
-  sudo-nspawn = import ../sudo-nspawn.nix { inherit (pkgs) sudo; };
+  sudo-nspawn' = import ../sudo-nspawn.nix { inherit (pkgs) sudo; };
+  sudo-nspawn = if pkgs ? "sudo-nspawn" then pkgs.sudo-nspawn else sudo-nspawn';
 in
 {
   boot.isContainer = true;
@@ -35,4 +36,10 @@ in
       LinkLocalAddressing = lib.mkDefault "ipv6";
     };
   };
+
+  # When mountDaemonSocket is enabled, the in-container daemon needs to not start.
+  # Block the socket startup if the socket file already exists on boot.
+  systemd.sockets.nix-daemon.unitConfig.ConditionPathExists = [
+    "!/nix/var/nix/daemon-socket/socket"
+  ];
 }

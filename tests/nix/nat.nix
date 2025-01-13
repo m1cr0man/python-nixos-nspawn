@@ -1,7 +1,6 @@
 { self, pkgs, lib, ... }:
 {
   name = "containers-next-nat";
-  meta.maintainers = with lib.maintainers; [ ma27 m1cr0man ];
 
   nodes.client = {
     systemd.network.networks."10-eth1" = {
@@ -22,14 +21,11 @@
   };
 
   nodes.host = {
-    imports = [
-      self.nixosModules.hypervisor
-    ];
-
     systemd.network.networks."10-eth1" = {
       matchConfig.Name = "eth1";
       address = [ "fd24::1/64" "192.168.1.2/24" ];
-      networkConfig.IPForward = "yes";
+      networkConfig.IPv4Forwarding = "yes";
+      networkConfig.IPv6Forwarding = "yes";
       routes = [
         { Destination = "fd23::1/64"; }
       ];
@@ -61,9 +57,9 @@
         client.succeed("ping -c4 >&2 fd24::1")
 
     with subtest("Confirm IPv4 NAT"):
-        host.succeed("systemd-run -M withnat --pty --quiet -- /bin/sh --login -c 'ping -c4 >&2 192.168.1.1'")
+        host.wait_until_succeeds("systemd-run -M withnat --pty --quiet -- /bin/sh --login -c 'ping -c4 >&2 192.168.1.1'")
         host.fail("systemd-run -M nonat --pty --quiet -- /bin/sh --login -c 'ping -c4 >&2 192.168.1.1'")
-        host.succeed("systemd-run -M withnat --pty --quiet -- /bin/sh --login -c 'ping -c4 >&2 fd23::1'")
+        host.wait_until_succeeds("systemd-run -M withnat --pty --quiet -- /bin/sh --login -c 'ping -c4 >&2 fd23::1'")
         host.fail("systemd-run -M nonat --pty --quiet -- /bin/sh --login -c 'ping -c4 >&2 fd23::1'")
 
     host.shutdown()

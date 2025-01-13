@@ -12,7 +12,15 @@
     in
     {
       overlays = {
-        default = self.overlays."${name}";
+        default = (final: prev: (
+          (self.overlays."${name}" final prev)
+          // (self.overlays.sudo-nspawn final prev)
+        ));
+        sudo-nspawn = (final: prev: {
+          sudo-nspawn = import "${self}/nixos_nspawn/nix/sudo-nspawn.nix" {
+            inherit (prev) sudo;
+          };
+        });
         "${name}" = (final: prev: {
           # Use pythonPackageExtensions so that any supported version of Python can be used
           "${name}" = prev.python3Packages."${name}";
@@ -86,7 +94,7 @@
           });
         };
 
-        checks = import ./tests/nix {
+        checks = import "${self}/tests/nix" {
           inherit system pkgs nixpkgs self;
         };
 

@@ -49,7 +49,6 @@ in
 {
   declarative = mkOption {
     default = declarative;
-    readOnly = true;
     type = types.bool;
     description = ''
       Indicates whether this container is declarative or imperative.
@@ -274,6 +273,31 @@ in
       };
   };
 
+  # toplevel = mkOption {
+  #   internal = true;
+  #   readOnly = true;
+  #   type = types.package;
+  #   defaultText = "Store path of generated toplevel directory";
+  #   description = ''
+  #     This is equivalent to the container's config.system.build.toplevel,
+  #     but includes some extra files
+  #   '';
+  #   default = pkgs.buildEnv {
+  #     inherit name;
+  #     paths = [
+  #       config.system-config.config.system.build.toplevel
+  #       # Generate a JSON file so that nixos-nspawn can read container properties.
+  #       (pkgs.writeTextDir
+  #         "nixos-nspawn.json"
+  #         (builtins.toJSON (
+  #           builtins.removeAttrs config [ "system-config" "nixpkgs" "toplevel" ]
+  #         ))
+  #       )
+  #     ];
+  #   };
+  # };
+
+  # TODO seems to support any container type. Move up?
   timeoutStartSec = mkOption {
     type = types.str;
     default = "90s";

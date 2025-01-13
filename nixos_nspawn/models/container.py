@@ -9,6 +9,7 @@ from time import sleep
 from typing import Any, Optional, Union
 
 from ..constants import (
+    DECLARATIVE_CONFIG_DIR,
     DEFAULT_EVAL_SCRIPT,
     FLAKE_KEY,
     MACHINE_STATE_DIR,
@@ -67,13 +68,18 @@ class Container(Printable):
 
     @property
     def is_managed(self) -> bool:
-        return self.__nspawn_data_dir.exists()
+        return self.profile_data != {}
 
     @property
     def profile_data(self) -> dict:
         if not self.__profile_data:
-            self.__logger.debug("Loading %s", self.__nspawn_data_dir / "data.json")
-            with (self.__nspawn_data_dir / "data.json").open() as profile_data_fd:
+            self.__profile_data = {}
+            cfg = self.__nspawn_data_dir / "data.json"
+            if (decl_cfg := DECLARATIVE_CONFIG_DIR / f"{self.name}.json").exists():
+                cfg = decl_cfg
+
+            self.__logger.debug("Loading %s", cfg)
+            with cfg.open() as profile_data_fd:
                 self.__profile_data = load(profile_data_fd)
 
         return self.__profile_data
@@ -102,7 +108,7 @@ class Container(Printable):
     def to_dict(self) -> dict:
         return {
             "name": self.name,
-            "unit_file": self.unit_file,
+            "unit_file": str(self.unit_file),
             "is_imperative": self.is_imperative,
         }
 

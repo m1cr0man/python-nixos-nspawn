@@ -13,3 +13,5 @@ RC_CONTAINER_MISSING = 2
 DEFAULT_EVAL_SCRIPT = Path(__file__).parent / "nix" / "eval-config.nix"
 
 FLAKE_KEY = "nixosContainers"
+
+DECLARATIVE_CONFIG_DIR = Path("/etc/nixos-nspawn/declarative.d")

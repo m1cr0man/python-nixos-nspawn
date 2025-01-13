@@ -16,22 +16,15 @@
 # use systemd-nspawn itself for containers (and consider NixOS just a thin abstraction layer),
 # this isn't a big deal IMHO.
 
-{ self, pkgs, lib, ... }:
+{ self, ... }:
 {
   name = "containers-next-macvlan";
-  meta = with lib.maintainers; {
-    maintainers = [ ma27 m1cr0man ];
-  };
 
   nodes.client = { pkgs, ... }: {
     virtualisation.vlans = [ 2 ];
   };
 
   nodes.macvlan = { pkgs, lib, ... }: {
-    imports = [
-      self.nixosModules.hypervisor
-    ];
-
     virtualisation.vlans = [ 2 ];
 
     systemd.network.networks."40-eth1" = {
@@ -50,7 +43,7 @@
     # in `nspawn-network.c` (see `setup_macvlans`).
     systemd.network.networks."20-mv-eth1-host" = {
       matchConfig.Name = "mv-eth1-host";
-      networkConfig.IPForward = "yes";
+      networkConfig.IPv4Forwarding = "yes";
       dhcpV4Config.ClientIdentifier = "mac";
       address = lib.mkForce [
         "192.168.2.2/24"

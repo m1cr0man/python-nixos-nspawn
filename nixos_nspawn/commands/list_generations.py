@@ -21,7 +21,7 @@ class ListGenerationsCommand(BaseCommand, Command):
 
         generations = container.get_generations()
 
-        self._jprint(generations)
+        self._jprint([g.render() for g in generations])
 
         self._rprint(
             f"Showing {len(generations)} generations" f" for container [bold]{name}[/bold]:"

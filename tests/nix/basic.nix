@@ -1,15 +1,10 @@
-{ self, config, pkgs, lib, ... }:
+{ self, config, pkgs, ... }:
 let
   inherit (import "${pkgs.path}/nixos/tests/ssh-keys.nix" pkgs)
     snakeOilPrivateKey snakeOilPublicKey;
-  stateVersion = config.system.stateVersion;
-  v4Pool = [ "192.168.254.0/24" ];
 in
 {
   name = "container-tests";
-  meta = with pkgs.lib.maintainers; {
-    maintainers = [ ma27 m1cr0man ];
-  };
 
   # Just an arbitrary `client'-machine to test the public endpoints
   # of containers hosted on a different server.
@@ -28,10 +23,6 @@ in
   # Demo server which hosts nspawn machines.
   nodes.server = { pkgs, lib, config, ... }: {
     ### Basic networking parts to get the setup up and running
-
-    imports = [
-      self.nixosModules.hypervisor
-    ];
 
     virtualisation.vlans = [ 1 ];
     networking = {
@@ -86,11 +77,12 @@ in
     };
 
     # IPv4/IPv6 connectivity in the test network
+    systemd.network.config.networkConfig.IPv6Forwarding = "yes";
     systemd.network.networks."10-eth1" = {
       matchConfig.Name = "eth1";
       address = [ "fd24::1/64" ];
       networkConfig = {
-        IPForward = "yes";
+        IPv4Forwarding = "yes";
         DNS = "fd24::1";
       };
       routes = [
