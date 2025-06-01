@@ -52,13 +52,11 @@ Container example
 
 # Development environment setup
 
-This repository uses Poetry. You can
+This repository uses Nix. You can
 
 ```bash
-# Get poetry in your environment
+# Get the dev tools in your environment
 nix develop
-# Create the virtualenv.
-poetry install --no-root
 # (VS Code) Open the workspace file
 code python-nixos-nspawn.code-workspace
 # Build and run the project
@@ -67,13 +65,7 @@ nix run
 
 ## Updating dependencies
 
-*Note*: Due to [a bug](https://github.com/nix-community/poetry2nix/issues/701#issuecomment-1229790215),
-ensure Poetry is >= 1.1.14.
-
 ```bash
-# Update poetry lockfile
-nix develop
-poetry lock
 # Update flake lockfile
 nix flake update
 ```

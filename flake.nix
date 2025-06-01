@@ -30,10 +30,10 @@
                 inherit version;
                 pname = name;
                 src = self;
-                disabled = python-prev.pythonOlder "3.9";
+                disabled = python-prev.pythonOlder "3.11";
 
                 format = "pyproject";
-                buildInputs = [ python-prev.poetry-core ];
+                buildInputs = [ python-prev.setuptools ];
                 propagatedBuildInputs = [ python-prev.rich ];
 
                 patches = [
@@ -90,13 +90,14 @@
 
         devShells = {
           default = (pkgs.python3.withPackages (pyPkgs: [ pyPkgs.rich ])).env.overrideAttrs (prev: {
-            nativeBuildInputs = prev.nativeBuildInputs ++ [ pkgs.poetry ];
+            nativeBuildInputs = prev.nativeBuildInputs ++ [ pkgs.ruff pkgs.ty ];
           });
         };
 
-        checks = import "${self}/tests/nix" {
-          inherit system pkgs nixpkgs self;
-        };
+        checks = import "${self}/tests/nix"
+          {
+            inherit system pkgs nixpkgs self;
+          };
 
         # Example container
         nixosContainers.example = self.lib.mkContainer {

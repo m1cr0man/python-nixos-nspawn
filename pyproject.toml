@@ -1,50 +1,41 @@
-[tool.poetry]
+[project]
 name = "nixos_nspawn"
-version = "0.2.4"
 description = "NixOS Nspawn container imperative management tool"
-authors = ["Lucas Savva <lucas@m1cr0man.com>"]
-license = "MIT"
-readme = "README.md"
-include = ["nixos_nspawn/*.txt", "nixos_nspawn/nix"]
+authors = [{ name = "Lucas Savva", email = "lucas@m1cr0man.com" }]
+dynamic = ["version"]
+readme = "REAMDE.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+classifiers = ["Programming Language :: Python :: 3"]
 
-[tool.poetry.scripts]
+dependencies = ["rich ~= 14.0"]
+
+[dependency-groups]
+dev = ["ruff ~= 0.11", "ty ~= 0.0.1"]
+
+[project.scripts]
 nixos-nspawn = "nixos_nspawn:main_with_args"
 
-[tool.poetry.dependencies]
-python = "^3.11"
-# Keep the rich version roughly the same as the version in nixpkgs
-rich = "^13"
+[tool.setuptools.packages.find]
+include = ["nixos_nspawn*"]
 
-[tool.poetry.dev-dependencies]
-black = "^23"
-flake8 = "^6"
-flake8-annotations = "^3"
-flake8-assertive = "^2"
-flake8-bugbear = "^23"
-flake8-comprehensions = "^3"
-Flake8-pyproject = "^1"
-isort = "^5"
-pep8-naming = "^0.13"
-pylint = "^2.16"
-rope = "^1"
+[tool.setuptools.package-data]
+"nixos_nspawn" = ["*.txt"]
+"nixos_nspawn.nix" = ["*"]
+
+[tool.setuptools.dynamic]
+version = { file = ["nixos_nspawn/version.txt"] }
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
-[tool.black]
+[tool.ruff]
 line-length = 100
-target-version = ['py310']
-
-[tool.flake8]
-max-line-length = 91
-max-complexity = 16
-select = ["A", "B", "C", "E", "F", "M", "N", "W", "B902", "B950"]
-ignore = ["E203", "E501", "W503", "ANN101", "ANN102"]
+target-version = "py311"
 exclude = ["dist/*", "build/*", "__pycache__", ".git", ".vscode", "*.egg-info"]
 
-[tool.isort]
-profile = "black"
-
-[tool.pylint."messages control"]
-disable = ["C0114", "C0115", "C0116"]
+[tool.ruff.lint]
+preview = true
+select = ["A", "B", "C4", "CPY", "E", "F", "I", "N", "W"]
+ignore = ["E203", "E501"]
