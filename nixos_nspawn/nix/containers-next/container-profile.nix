@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, config, ... }:
 let
   sudo-nspawn' = import ../sudo-nspawn.nix { inherit (pkgs) sudo; };
   sudo-nspawn = if pkgs ? "sudo-nspawn" then pkgs.sudo-nspawn else sudo-nspawn';
@@ -36,6 +36,10 @@ in
       LinkLocalAddressing = lib.mkDefault "ipv6";
     };
   };
+
+  # Fix for infinite recursion during build.
+  # See https://github.com/NixOS/nixpkgs/issues/353225
+  networking.resolvconf.enable = !config.services.resolved.enable;
 
   # When mountDaemonSocket is enabled, the in-container daemon needs to not start.
   # Block the socket startup if the socket file already exists on boot.

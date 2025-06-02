@@ -1,7 +1,5 @@
 rec {
 
-  containerProfileModule = import ./containers-next/container-profile.nix;
-
   containerAssertions = { containerConfig, lib }: [
     {
       assertion = containerConfig.sharedNix;
@@ -55,6 +53,7 @@ rec {
 
                 # Not necesssary when generating imperative containers
                 nixos.containers.enableAutostartService = false;
+                networking.resolvconf.enable = !config.services.resolved.enable;
 
                 # A bit of a hack.. Use the imperative container's config as a
                 # declarative container. This will fill in the required parts of
