@@ -77,6 +77,13 @@ in
     '';
   };
 
+  legacyOwnership = mkEnableOption ''
+    user/group namespacing options which support older filesystems. These are:
+    PrivateUsers=yes
+    PrivateUsersOwnership=chown
+    No *idmap mount options
+  '';
+
   bindMounts = mkOption {
     default = [ ];
     type = types.listOf types.str;

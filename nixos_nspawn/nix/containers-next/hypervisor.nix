@@ -85,7 +85,10 @@ let
   mkImage = name: config: { container = config.system-config; inherit config; };
 
   mkContainer = cfg:
-    let inherit (cfg) container config; in
+    let
+      inherit (cfg) container config;
+      idmap = lib.optionalString (!config.legacyOwnership) ":rootidmap";
+    in
     mkMerge [
       {
         execConfig = {
@@ -93,28 +96,24 @@ let
           Parameters = "${container.config.system.build.toplevel}/init";
           Ephemeral = yesNo config.ephemeral;
           KillSignal = "SIGRTMIN+3";
-          PrivateUsers = mkDefault "pick";
+          PrivateUsers = mkDefault (if config.legacyOwnership then "yes" else "pick");
           LinkJournal = mkDefault (if config.ephemeral then "auto" else "guest");
           X-ActivationStrategy = config.activation.strategy;
         };
         filesConfig = mkMerge [
           {
-            PrivateUsersOwnership = mkDefault "chown";
+            PrivateUsersOwnership = mkDefault (if config.legacyOwnership then "chown" else "auto");
             Bind = config.bindMounts;
           }
           (mkIf config.sharedNix {
             BindReadOnly = [
-              # FIXME should really use rootidmap option here,
-              # but it is not supported on all filesystems.
-              # Logrotate for example doesn't like the mismatching ID.
-              "/nix/store"
-              "/nix/var/nix/profiles"
-              "/nix/var/nix/profiles/per-nspawn"
+              "/nix/store:/nix/store${idmap}"
+              "/nix/var/nix/profiles:/nix/var/nix/profiles${idmap}"
             ];
           })
           (mkIf (config.sharedNix && config.mountDaemonSocket) {
-            BindReadOnly = [ "/nix/var/nix/db" ];
-            Bind = [ "/nix/var/nix/daemon-socket" ];
+            BindReadOnly = [ "/nix/var/nix/db:/nix/var/nix/db${idmap}" ];
+            Bind = [ "/nix/var/nix/daemon-socket:/nix/var/nix/daemon-socket${idmap}" ];
           })
         ];
         networkConfig = mkMerge [
@@ -146,7 +145,7 @@ let
 
               cat ${info}/store-paths | while read line
               do
-                echo "BindReadOnly=$line" >> $out
+                echo "BindReadOnly=$line:$line${idmap}" >> $out
               done
             '';
       })
