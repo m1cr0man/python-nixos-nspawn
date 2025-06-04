@@ -87,7 +87,7 @@ let
   mkContainer = cfg:
     let
       inherit (cfg) container config;
-      idmap = lib.optionalString (!config.legacyOwnership) ":rootidmap";
+      idmap = lib.optionalString config.userNamespacing ":rootidmap";
     in
     mkMerge [
       {
@@ -96,13 +96,13 @@ let
           Parameters = "${container.config.system.build.toplevel}/init";
           Ephemeral = yesNo config.ephemeral;
           KillSignal = "SIGRTMIN+3";
-          PrivateUsers = mkDefault (if config.legacyOwnership then "yes" else "pick");
+          PrivateUsers = mkDefault (if config.userNamespacing then "pick" else "no");
           LinkJournal = mkDefault (if config.ephemeral then "auto" else "guest");
           X-ActivationStrategy = config.activation.strategy;
         };
         filesConfig = mkMerge [
           {
-            PrivateUsersOwnership = mkDefault (if config.legacyOwnership then "chown" else "auto");
+            PrivateUsersOwnership = mkDefault (if config.userNamespacing then "auto" else "chown");
             Bind = config.bindMounts;
           }
           (mkIf config.sharedNix {

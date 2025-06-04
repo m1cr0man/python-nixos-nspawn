@@ -77,12 +77,14 @@ in
     '';
   };
 
-  legacyOwnership = mkEnableOption ''
-    user/group namespacing options which support older filesystems. These are:
-    PrivateUsers=yes
-    PrivateUsersOwnership=chown
-    No *idmap mount options
-  '';
+  userNamespacing = mkOption {
+    default = true;
+    type = types.bool;
+    description = ''
+      Whether to use user/group namespacing. This will also enable idmapping on core mounts.
+      You may want to disable this if you run into boot issues related to idmap bind mounts.
+    '';
+  };
 
   bindMounts = mkOption {
     default = [ ];
