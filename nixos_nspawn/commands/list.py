@@ -38,7 +38,8 @@ class ListCommand(BaseCommand, Command):
                 results.append(container)
             else:
                 logger.debug(
-                    f"Skipping {container.is_imperative and 'imperative' or 'declarative'} container {container.name}"
+                    f"Skipping {container.is_imperative and 'imperative' or 'declarative'}"
+                    f" container {container.name}"
                 )
 
         self._rprint(f"Showing {len(results)} of {len(containers)} containers:")

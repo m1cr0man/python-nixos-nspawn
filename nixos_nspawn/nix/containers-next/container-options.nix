@@ -83,7 +83,7 @@ in
     description = ''
       Whether to use user/group namespacing. This will also enable idmapping on core mounts.
       You may want to disable this if you run into boot issues related to idmap bind mounts.
-    '';
+"    '';
   };
 
   bindMounts = mkOption {

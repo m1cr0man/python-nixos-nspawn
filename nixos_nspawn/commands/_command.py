@@ -17,8 +17,7 @@ class Command(Protocol):
     parsed_args: Namespace
     manager: NixosNspawnManager
 
-    def __init__(self, parsed_args: Namespace, manager: NixosNspawnManager) -> None:
-        ...
+    def __init__(self, parsed_args: Namespace, manager: NixosNspawnManager) -> None: ...
 
     @classmethod
     @abstractmethod

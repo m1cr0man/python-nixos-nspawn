@@ -8,8 +8,7 @@ from ..metadata import default_system
 from ..models import Container
 
 
-class NixosNspawnManagerError(BaseException):
-    ...
+class NixosNspawnManagerError(BaseException): ...
 
 
 class NixosNspawnManager(object):
@@ -105,8 +104,7 @@ class NixosNspawnManager(object):
         activation_strategy: Optional[str] = None,
     ) -> None:
         self.__logger.debug(
-            "Updating container [bold]%s[/bold] with config '%s'."
-            " Activation strategy override: %s",
+            "Updating container [bold]%s[/bold] with config '%s'. Activation strategy override: %s",
             container.name,
             config or flake,
             activation_strategy,

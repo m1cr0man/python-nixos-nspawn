@@ -37,5 +37,5 @@ exclude = ["dist/*", "build/*", "__pycache__", ".git", ".vscode", "*.egg-info"]
 
 [tool.ruff.lint]
 preview = true
-select = ["A", "B", "C4", "CPY", "E", "F", "I", "N", "W"]
-ignore = ["E203", "E501"]
+select = ["A", "B", "C4", "E", "F", "I", "N", "W"]
+ignore = ["E203"]

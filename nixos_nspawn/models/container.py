@@ -1,10 +1,10 @@
+import shutil
 from collections.abc import Generator
 from json import load
 from logging import getLogger
 from os import getenv
 from pathlib import Path
 from shutil import rmtree
-import shutil
 from time import sleep
 from typing import Any, Optional, Union
 
@@ -22,8 +22,7 @@ from ._printable import Printable
 from .nix_generation import NixGeneration
 
 
-class ContainerError(BaseException):
-    ...
+class ContainerError(BaseException): ...
 
 
 class Container(Printable):
