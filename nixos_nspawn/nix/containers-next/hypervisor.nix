@@ -359,7 +359,7 @@ in
               ExecReload = if activation.reloadScript != null then activation.reloadScript else
               pkgs.writeShellScript "activate" ''
                 pid=$(${config.systemd.package}/bin/machinectl show '${container}' --value --property Leader)
-                ${pkgs.util-linux}/bin/nsenter -t "$pid" -m -u -U -i -n -p \
+                ${pkgs.util-linux}/bin/nsenter -t "$pid" -a \
                   -- ${images.${container}.container.config.system.build.toplevel}/bin/switch-to-configuration test
               '';
             };
