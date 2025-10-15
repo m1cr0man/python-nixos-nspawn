@@ -86,6 +86,15 @@ in
 "    '';
   };
 
+  systemCallFilter = mkOption {
+    default = null;
+    type = types.nullOr types.str;
+    description = ''
+      Whether to filter system calls for the container.
+      Corresponds to `SystemCallFilter` of {manpage}`systemd.exec(5)`.
+    '';
+  };
+
   bindMounts = mkOption {
     default = [ ];
     type = types.listOf types.str;

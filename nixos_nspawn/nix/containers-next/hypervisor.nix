@@ -95,6 +95,7 @@ let
           Boot = false;
           Parameters = "${container.config.system.build.toplevel}/init";
           Ephemeral = yesNo config.ephemeral;
+          SystemCallFilter = lib.mkIf (config.systemCallFilter != null) config.systemCallFilter;
           KillSignal = "SIGRTMIN+3";
           PrivateUsers = mkDefault (if config.userNamespacing then "pick" else "no");
           LinkJournal = mkDefault (if config.ephemeral then "auto" else "guest");
