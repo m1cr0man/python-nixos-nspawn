@@ -64,7 +64,6 @@ in
 
   nodes = {
     machine = { ... }: {
-      system.switch.enableNg = false;
       nixos.containers = {
         zones.foo = {
           hostAddresses = [ "10.231.142.1/24" ];

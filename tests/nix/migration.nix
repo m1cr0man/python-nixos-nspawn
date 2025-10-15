@@ -30,13 +30,18 @@ let
           };
         };
         networking.firewall.allowedTCPPorts = [ 80 ];
+        # Fix for infinite recursion during build.
+        # See https://github.com/NixOS/nixpkgs/issues/353225
+        networking.resolvconf.enable = false;
       };
     };
     containers.test2 = {
       privateNetwork = true;
       hostAddress = "10.231.136.1";
       localAddress = "10.231.136.2";
-      config = { };
+      config = {
+        networking.resolvconf.enable = false;
+      };
     };
   };
   networkd = { pkgs, ... }: {
@@ -51,7 +56,9 @@ let
       privateNetwork = true;
       hostAddress = "10.232.13.1";
       localAddress = "10.232.13.2";
-      config = { };
+      config = {
+        networking.resolvconf.enable = false;
+      };
     };
 
     # Corresponding networkd config for macvlans
