@@ -35,7 +35,7 @@ rec {
       # FIXME this is bad. For any service enabled in the container, it is also enabled
       # for this virtual hypervisor. We are generating two copies of the same system basically.
       # All we want is the systemd nspawn + network units.
-      host = import "${pkgs.path}/nixos/lib/eval-config.nix"
+      host = import "${nixpkgs}/nixos/lib/eval-config.nix"
         {
           inherit pkgs system;
           inherit (pkgs) lib;
@@ -59,6 +59,7 @@ rec {
                 # declarative container. This will fill in the required parts of
                 # the module configuration to generate the Systemd units.
                 nixos.containers.instances."${name}" = config.nixosContainer // {
+                  inherit nixpkgs;
                   declarative = lib.mkForce false;
                   system-config.imports = modules ++ [{
                     # Add the nixosContainer option to the container itself
