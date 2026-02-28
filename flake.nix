@@ -46,7 +46,7 @@
                       +++ b/nixos_nspawn/system.txt
                       @@ -1 +1 @@
                       -x86_64-linux
-                      +${final.hostPlatform.system}
+                      +${final.stdenv.hostPlatform.system}
                     '')
                 ];
 
