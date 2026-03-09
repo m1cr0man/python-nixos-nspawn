@@ -70,7 +70,7 @@
 
     } // (flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import "${nixpkgs}/pkgs/top-level/default.nix" {
+        pkgs = import nixpkgs {
           localSystem.system = system;
           overlays = [ self.overlays.default ];
           config = { };
@@ -101,11 +101,11 @@
 
         # Example container
         nixosContainers.example = self.lib.mkContainer {
-          inherit nixpkgs system pkgs;
+          inherit system pkgs;
           name = "example";
           modules = [
             ({ pkgs, ... }: {
-              system.stateVersion = "24.11";
+              system.stateVersion = "25.11";
               environment.systemPackages = [ pkgs.python311 ];
               nixosContainer.network.v4.addrPool = [ "10.151.1.1/24" ];
               nixosContainer.forwardPorts = [{ hostPort = 12345; containerPort = 12345; }];

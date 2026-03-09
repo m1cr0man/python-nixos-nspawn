@@ -5,7 +5,7 @@
 , self
 }:
 let
-  nixos-lib = import (nixpkgs + "/nixos/lib") { inherit (pkgs) lib; };
+  nixos-lib = import (pkgs.path + "/nixos/lib/testing/default.nix") { inherit (pkgs) lib; };
   runTest' = { module, enableHypervisor }: nixos-lib.runTest {
     _module.args.self = self;
     imports = [
@@ -15,7 +15,7 @@ let
 
     # Per-node default options. Think of this as a module imported on all nodes.
     defaults = {
-      system.stateVersion = "24.11";
+      system.stateVersion = "25.11";
       networking.useNetworkd = true;
       imports = pkgs.lib.optionals enableHypervisor [
         self.nixosModules.hypervisor
@@ -31,12 +31,12 @@ let
   runTestNoHV = module: runTest' { inherit module; enableHypervisor = false; };
 in
 {
-  basic = runTest ./basic.nix;
-  config-activation = runTest ./config-activation.nix;
-  daemon-mount = runTest ./daemon-mount.nix;
-  imperative = runTest ./imperative.nix;
-  macvlan = runTest ./macvlan.nix;
-  nat = runTest ./nat.nix;
-  migration = runTestNoHV ./migration.nix;
-  wireguard = runTest ./wireguard.nix;
+  basic = runTest "${self}/tests/nix/basic.nix";
+  config-activation = runTest "${self}/tests/nix/config-activation.nix";
+  daemon-mount = runTest "${self}/tests/nix/daemon-mount.nix";
+  imperative = runTest "${self}/tests/nix/imperative.nix";
+  macvlan = runTest "${self}/tests/nix/macvlan.nix";
+  nat = runTest "${self}/tests/nix/nat.nix";
+  migration = runTestNoHV "${self}/tests/nix/migration.nix";
+  wireguard = runTest "${self}/tests/nix/wireguard.nix";
 }

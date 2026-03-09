@@ -18,6 +18,7 @@
       ip6tables -A INPUT -p icmp -s fd24::1 -j ACCEPT
       ip46tables -A INPUT -p icmp -j REJECT
     '';
+    networking.firewall.logRefusedPackets = true;
   };
 
   nodes.host = {
@@ -32,6 +33,7 @@
     };
 
     networking.firewall.allowedUDPPorts = [ 53 67 68 546 547 ];
+    networking.firewall.logRefusedPackets = true;
 
     nixos.containers.instances = with lib; mapAttrs
       (const (nat: {
@@ -43,24 +45,29 @@
       };
   };
 
-  testScript = ''
+  testScript = let
+    ping = "$(which ping) -W1 -c2 >&2";
+  in ''
     start_all()
 
-    host.wait_for_unit("network-online.target")
+    host.wait_for_unit("network.target")
     host.wait_for_unit("machines.target")
-    client.wait_for_unit("network-online.target")
+    client.wait_for_unit("network.target")
 
     with subtest("Confirm connectivity between host & client (precondition)"):
-        host.succeed("ping -c4 >&2 192.168.1.1")
-        client.succeed("ping -c4 >&2 192.168.1.2")
-        host.succeed("ping -c4 >&2 fd23::1")
-        client.succeed("ping -c4 >&2 fd24::1")
+        host.succeed("${ping} 192.168.1.1")
+        client.succeed("${ping} 192.168.1.2")
+        host.succeed("${ping} fd23::1")
+        client.succeed("${ping} fd24::1")
 
-    with subtest("Confirm IPv4 NAT"):
-        host.wait_until_succeeds("systemd-run -M withnat --pty --quiet -- /bin/sh --login -c 'ping -c4 >&2 192.168.1.1'")
-        host.fail("systemd-run -M nonat --pty --quiet -- /bin/sh --login -c 'ping -c4 >&2 192.168.1.1'")
-        host.wait_until_succeeds("systemd-run -M withnat --pty --quiet -- /bin/sh --login -c 'ping -c4 >&2 fd23::1'")
-        host.fail("systemd-run -M nonat --pty --quiet -- /bin/sh --login -c 'ping -c4 >&2 fd23::1'")
+    with subtest("Confirm NAT"):
+        # Wait for the withnat VM to be routable
+        host.wait_until_succeeds("${ping} -4 withnat")
+        host.wait_until_succeeds("${ping} -6 withnat")
+        host.succeed("systemd-run -M withnat --pty -- ${ping} 192.168.1.1")
+        host.fail("systemd-run -M nonat --pty -- ${ping} 192.168.1.1")
+        host.succeed("systemd-run -M withnat --pty -- ${ping} fd23::1")
+        host.fail("systemd-run -M nonat --pty -- ${ping} fd23::1")
 
     host.shutdown()
     client.shutdown()

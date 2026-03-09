@@ -115,7 +115,8 @@ in
         if ip_version == 4:
             return peer1.succeed(f"machinectl status {name} | grep '192.168.23' | cut -d: -f2 | xargs echo").rstrip()
         else:
-            return peer1.succeed(f"machinectl status {name} | grep 'fd42:23' | xargs echo").rstrip()
+            # Sometimes a container has two IPs
+            return peer1.succeed(f"machinectl status {name} | grep 'fd42:23' | xargs echo").rstrip().split(" ")[0]
 
     with subtest("WireGuard tunnel is up"):
         peer1.wait_until_succeeds("ping -c4 192.168.1.1 >&2")
@@ -132,7 +133,7 @@ in
 
     with subtest("IPv6 connectivity to container"):
         peer1.succeed("ping -6 -c4 container0 >&2")
-        peer0.succeed(f"ping -c4 {get_container_ip('container0', 6)} >&2")
+        peer0.succeed(f"ping -6 -c4 {get_container_ip('container0', 6)} >&2")
 
     with subtest("DNS"):
         for ip_version in [4, 6]:

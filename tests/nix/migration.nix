@@ -29,6 +29,8 @@ let
             ];
           };
         };
+        systemd.services.nginx.wants = [ "network.target" ];
+        systemd.services.nginx.after = [ "network.target" ];
         networking.firewall.allowedTCPPorts = [ 80 ];
         # Fix for infinite recursion during build.
         # See https://github.com/NixOS/nixpkgs/issues/353225
@@ -121,6 +123,7 @@ let
       test2 = {
         network.v4.static.containerPool = [ "10.231.136.2/24" ];
         network.v4.static.hostAddresses = [ "10.231.136.1/24" ];
+        userNamespacing = true;
       };
     };
   };
@@ -165,8 +168,11 @@ in
       client.start()
       machine.start()
 
-      client.wait_for_unit("network-online.target")
-      machine.wait_for_unit("network-online.target")
+      client.wait_for_unit("network.target")
+      client.wait_for_unit("multi-user.target")
+      machine.wait_for_unit("network.target")
+      machine.wait_for_unit("multi-user.target")
+      machine.wait_for_unit("machines.target")
 
       # For some reason /nix/var/nix/db is missing when using Grub as VM bootloader. Running
       # this ensures it's created.
@@ -223,7 +229,9 @@ in
 
           machine.shutdown()
           machine.start()
-          machine.wait_for_unit("network-online.target")
+          machine.wait_for_unit("network.target")
+          machine.wait_for_unit("multi-user.target")
+          machine.wait_for_unit("machines.target")
 
           machine.wait_until_succeeds("ping -c3 ${hostIP} >&2")
           machine.wait_until_succeeds("ping -c3 ${containerIP} >&2")
@@ -233,14 +241,13 @@ in
           client.succeed("curl -sSf ${containerIP} | grep -q 'Welcome to nginx'")
 
           machine.succeed(
-              "systemd-run -M test2 --pty --quiet -- /bin/sh --login -c 'cat /root/tmpfile | grep foobar'"
+              "systemd-run -M test2 --pty --quiet -- /bin/sh --login -c 'cat /root/tmpfile | grep foobar"
+              " && ls -an /root/tmpfile'"
           )
-          output = machine.execute("ls -an /var/lib/machines/test2/root/tmpfile")
-          print(output)
-          machine.succeed("test 60000 -lt $(stat /var/lib/machines/test2/root/tmpfile -c %u)")
           machine.succeed(
               "systemd-run -M test2 --pty --quiet -- /bin/sh --login -c 'test 0 = $(stat /root/tmpfile -c %u)'"
           )
+          machine.succeed("test 0 = $(stat /var/lib/machines/test2/root/tmpfile -c %u)")
 
           machine.succeed("nixos-container start test3")
           machine.succeed("ping 10.232.13.1 -c3 >&2")

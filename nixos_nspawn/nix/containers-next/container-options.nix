@@ -78,12 +78,12 @@ in
   };
 
   userNamespacing = mkOption {
-    default = true;
+    default = false;
     type = types.bool;
     description = ''
       Whether to use user/group namespacing. This will also enable idmapping on core mounts.
       You may want to disable this if you run into boot issues related to idmap bind mounts.
-"    '';
+    '';
   };
 
   systemCallFilter = mkOption {
@@ -239,11 +239,11 @@ in
 
 } // (if declarative then {
   nixpkgs = mkOption {
-    default = pkgs.path;
-    defaultText = "pkgs.path";
-    type = types.path;
+    default = null;
+    type = types.nullOr types.path;
     description = ''
       Path to the `nixpkgs`-checkout or channel to use for the container.
+      If not provided, the current nixpkgs eval is used.
     '';
   };
 
@@ -262,15 +262,13 @@ in
     apply =
       let
         system = pkgs.stdenv.hostPlatform.system;
-        nixpkgs = config.nixpkgs;
-        # Avoid needless import of nixpkgs
-        pkgs' = if nixpkgs == pkgs.path then pkgs else
-        import nixpkgs {
+        # Evaluate user-specified nixpkgs if necessary
+        pkgs' = if config.nixpkgs == null then pkgs else import config.nixpkgs {
           inherit system;
           inherit (pkgs) config;
         };
       in
-      cfgs: import "${nixpkgs}/nixos/lib/eval-config.nix" {
+      cfgs: import "${pkgs'.path}/nixos/lib/eval-config.nix" {
         inherit system;
         inherit (pkgs') lib;
         pkgs = pkgs';

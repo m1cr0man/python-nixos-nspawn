@@ -12,7 +12,7 @@ rec {
   ];
 
   mkContainer =
-    { nixpkgs
+    { nixpkgs ? null
     , name
     , system
     , pkgs ? (import "${nixpkgs}/pkgs/top-level/default.nix" { localSystem.system = system; })
@@ -35,7 +35,7 @@ rec {
       # FIXME this is bad. For any service enabled in the container, it is also enabled
       # for this virtual hypervisor. We are generating two copies of the same system basically.
       # All we want is the systemd nspawn + network units.
-      host = import "${nixpkgs}/nixos/lib/eval-config.nix"
+      host = import "${pkgs.path}/nixos/lib/eval-config.nix"
         {
           inherit pkgs system;
           inherit (pkgs) lib;

@@ -21,7 +21,7 @@ include = ["nixos_nspawn*"]
 
 [tool.setuptools.package-data]
 "nixos_nspawn" = ["*.txt"]
-"nixos_nspawn.nix" = ["*"]
+"nixos_nspawn.nix" = ["*", "containers-next/*"]
 
 [tool.setuptools.dynamic]
 version = { file = ["nixos_nspawn/version.txt"] }

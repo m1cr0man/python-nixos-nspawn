@@ -79,7 +79,9 @@
         };
       in
       {
-        instances.vlandemo.system-config = mkNetworkCfg 5;
+        instances.vlandemo = {
+          system-config = mkNetworkCfg 5;
+        };
         instances.ephvlan = {
           ephemeral = true;
           system-config = mkNetworkCfg 9;
@@ -100,10 +102,13 @@
     start_all()
 
     macvlan.wait_for_unit("multi-user.target")
-    client.wait_for_unit("network-online.target")
+    client.wait_for_unit("multi-user.target")
+    macvlan.wait_until_succeeds("ping 192.168.2.2 -c3 >&2")
+    # The VMs don't wait for eth1 to be configured correctly, re-start them if necessary
+    macvlan.succeed("machinectl start vlandemo")
+    macvlan.succeed("machinectl start ephvlan")
 
     with subtest("MACVLANs"):
-        macvlan.wait_until_succeeds("ping 192.168.2.2 -c3 >&2")
         macvlan.wait_until_succeeds("ping 192.168.2.5 -c3 >&2")
         client.wait_until_succeeds("ping 192.168.2.2 -c3 >&2")
         client.wait_until_succeeds("ping 192.168.2.5 -c3 >&2")

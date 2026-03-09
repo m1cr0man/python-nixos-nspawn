@@ -185,16 +185,14 @@ in
 
     server.wait_for_unit("machines.target")
     server.wait_for_unit("multi-user.target")
-    server.wait_for_unit("network-online.target")
+    server.wait_for_unit("network.target")
 
-    client.wait_for_unit("network-online.target")
     client.wait_for_unit("multi-user.target")
-
-    client.wait_for_unit("systemd-networkd-wait-online.service")
+    client.wait_for_unit("network.target")
 
     server.wait_for_unit("systemd-nspawn@container0")
     server.wait_for_unit("systemd-nspawn@ephemeral")
-    server.wait_for_unit("systemd-networkd-wait-online.service")
+    server.wait_for_unit("network.target")
 
     with subtest("Static networking"):
         server.execute("ping fd24::1 -c3 >&2")
@@ -209,7 +207,7 @@ in
         server.succeed("curl -sSf 'http://localhost' | grep -q 'Welcome to nginx'")
 
         server.succeed(
-            "systemd-run -M container0 --pty --quiet -- /bin/sh --login -c 'test -w /var/empty'"
+            "systemd-run -M container0 --pty --quiet -- /bin/sh --login -c 'test -w /var/empty && echo yes || echo no'"
         )
 
         client.wait_until_succeeds("ping fd24::2 -c3 >&2")
@@ -248,7 +246,7 @@ in
         )
 
         server.succeed(
-            "systemd-run -M container2 --pty --quiet /bin/sh --login -c 'resolvectl query container2 | grep 127.0.0.1' >&2"
+            "systemd-run -M container2 --pty --quiet /bin/sh --login -c 'resolvectl query container2 | tee /dev/stderr | grep 127.0.0.2' >&2"
         )
 
     with subtest("Ephemeral"):

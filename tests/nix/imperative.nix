@@ -1,4 +1,94 @@
-{ pkgs, lib, self, ... }: {
+{ pkgs, lib, self, ... }: let
+  mkContainer = name: modules: (self.lib.mkContainer {
+    inherit pkgs name;
+    inherit (pkgs) system;
+    nixpkgs = pkgs.path;
+    modules = [{ system.stateVersion = "25.11"; }] ++ modules;
+  });
+
+  emptyContainer = (self.lib.mkContainer {
+    inherit pkgs;
+    inherit (pkgs) system;
+    nixpkgs = pkgs.path;
+    name = "foo";
+    modules = [{ system.stateVersion = "25.11"; }];
+  });
+
+  helloContainer = self.lib.mkContainer {
+    inherit pkgs;
+    inherit (pkgs) system;
+    nixpkgs = pkgs.path;
+    name = "foo";
+    modules = [
+      { system.stateVersion = "25.11"; }
+      ({ pkgs, ... }: {
+        environment.systemPackages = [ pkgs.hello ];
+      })
+    ];
+  };
+
+  nginxContainer = self.lib.mkContainer {
+    inherit pkgs;
+    inherit (pkgs) system;
+    nixpkgs = pkgs.path;
+    name = "foonet";
+    modules = [
+      { system.stateVersion = "25.11"; }
+      ({ pkgs, ... }: {
+        services.nginx.enable = true;
+        services.nginx.virtualHosts.localhost.default = true;
+        networking.firewall.allowedTCPPorts = [ 80 ];
+      })
+    ];
+  };
+
+  nginxContainerZone = self.lib.mkContainer {
+    inherit pkgs;
+    inherit (pkgs) system;
+    nixpkgs = pkgs.path;
+    name = "foozone";
+    modules = [
+      { system.stateVersion = "25.11"; }
+      ({ pkgs, ... }: {
+        services.nginx.enable = true;
+        networking.firewall.allowedTCPPorts = [ 80 ];
+        nixosContainer.zone = "foo";
+      })
+    ];
+  };
+
+  nginxContainerZone2 = self.lib.mkContainer {
+    inherit pkgs;
+    inherit (pkgs) system;
+    nixpkgs = pkgs.path;
+    name = "foozone2";
+    modules = [
+      { system.stateVersion = "25.11"; }
+      ({ pkgs, ... }: {
+        environment.systemPackages = [ pkgs.hello ];
+        nixosContainer.zone = "foo2";
+      })
+    ];
+  };
+
+  nginxContainerNet = self.lib.mkContainer {
+    inherit pkgs;
+    inherit (pkgs) system;
+    nixpkgs = pkgs.path;
+    name = "foonet2";
+    modules = [
+      { system.stateVersion = "25.11"; }
+      ({ pkgs, ... }: {
+        nixosContainer.network.v4.static = {
+          containerPool = [ "10.42.42.2/24" ];
+          hostAddresses = [
+            "10.42.42.1/24"
+          ];
+        };
+      })
+    ];
+  };
+in {
   name = "nspawn-imperative";
 
   nodes =
