@@ -5,7 +5,7 @@ from typing import Optional
 from ..constants import RC_CONTAINER_MISSING
 from ..metadata import default_system
 from ._command import BaseCommand, Command
-from ._shared import check_config_or_flake
+from ._shared import check_config_source
 
 
 class UpdateCommand(BaseCommand, Command):
@@ -19,6 +19,7 @@ class UpdateCommand(BaseCommand, Command):
     def register_arguments(cls, parser: ArgumentParser) -> None:
         super().register_arguments(parser)
         parser.add_argument("--config", help="Container configuration file", type=Path)
+        parser.add_argument("--profile", help="Container system profile path", type=Path)
         parser.add_argument("--flake", help="Container configuration flake path", type=str)
         parser.add_argument(
             "--strategy",
@@ -40,10 +41,11 @@ class UpdateCommand(BaseCommand, Command):
         name: str = self.parsed_args.name
         strategy: Optional[str] = self.parsed_args.strategy
         config: Optional[Path] = self.parsed_args.config
+        profile: Optional[Path] = self.parsed_args.profile
         flake: Optional[str] = self.parsed_args.flake
         system: str = self.parsed_args.system
 
-        if rc := check_config_or_flake(config, flake):
+        if rc := check_config_source(config, profile, flake):
             return rc
 
         container = self.manager.get(name)
@@ -56,6 +58,7 @@ class UpdateCommand(BaseCommand, Command):
         self.manager.update(
             container=container,
             config=config,
+            profile=profile,
             flake=flake,
             system=system,
             activation_strategy=strategy,

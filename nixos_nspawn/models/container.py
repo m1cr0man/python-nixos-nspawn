@@ -202,6 +202,33 @@ class Container(Printable):
 
         return self.__nix_path
 
+    def build_from_profile(self, profile: Path, update: bool = False) -> Path:
+        """Installs a pre-built system profile to the container's profile."""
+        # Create the profile directory if necessary
+        if not update:
+            self._create_profile_directory()
+
+        self.__logger.info("Installing configuration from profile %s", profile)
+
+        if not profile.exists():
+            raise ContainerError(f"Profile path '{profile}' does not exist.")
+
+        # We can't use .absolute() here since it may be a relative path to a result
+        # directory, which is a symlink. We need to resolve it first.
+        profile_path = profile.resolve()
+
+        args = [
+            "nix-env",
+            "-p",
+            str(self.__nix_path),
+            "--set",
+            str(profile_path),
+        ]
+
+        run_command(args)
+
+        return self.__nix_path
+
     def _apply_service_overrides(self) -> None:
         # In the future, we can use systemctl edit --stdin.
         # --stdin was added in v256, which isn't broadly in use yet.

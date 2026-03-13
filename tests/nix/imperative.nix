@@ -1,39 +1,27 @@
 { pkgs, lib, self, ... }: let
-  mkContainer = name: modules: (self.lib.mkContainer {
+  mkContainer = {name, modules ? []}: (self.lib.mkContainer {
     inherit pkgs name;
     inherit (pkgs) system;
     nixpkgs = pkgs.path;
     modules = [{ system.stateVersion = "25.11"; }] ++ modules;
   });
 
-  emptyContainer = (self.lib.mkContainer {
-    inherit pkgs;
-    inherit (pkgs) system;
-    nixpkgs = pkgs.path;
+  emptyContainer = mkContainer {
     name = "foo";
-    modules = [{ system.stateVersion = "25.11"; }];
-  });
+  };
 
-  helloContainer = self.lib.mkContainer {
-    inherit pkgs;
-    inherit (pkgs) system;
-    nixpkgs = pkgs.path;
+  helloContainer = mkContainer {
     name = "foo";
     modules = [
-      { system.stateVersion = "25.11"; }
       ({ pkgs, ... }: {
         environment.systemPackages = [ pkgs.hello ];
       })
     ];
   };
 
-  nginxContainer = self.lib.mkContainer {
-    inherit pkgs;
-    inherit (pkgs) system;
-    nixpkgs = pkgs.path;
+  nginxContainer = mkContainer {
     name = "foonet";
     modules = [
-      { system.stateVersion = "25.11"; }
       ({ pkgs, ... }: {
         services.nginx.enable = true;
         services.nginx.virtualHosts.localhost.default = true;
@@ -42,13 +30,9 @@
     ];
   };
 
-  nginxContainerZone = self.lib.mkContainer {
-    inherit pkgs;
-    inherit (pkgs) system;
-    nixpkgs = pkgs.path;
+  nginxContainerZone = mkContainer {
     name = "foozone";
     modules = [
-      { system.stateVersion = "25.11"; }
       ({ pkgs, ... }: {
         services.nginx.enable = true;
         networking.firewall.allowedTCPPorts = [ 80 ];
@@ -57,13 +41,9 @@
     ];
   };
 
-  nginxContainerZone2 = self.lib.mkContainer {
-    inherit pkgs;
-    inherit (pkgs) system;
-    nixpkgs = pkgs.path;
+  nginxContainerZone2 = mkContainer {
     name = "foozone2";
     modules = [
-      { system.stateVersion = "25.11"; }
       ({ pkgs, ... }: {
         environment.systemPackages = [ pkgs.hello ];
         nixosContainer.zone = "foo2";
@@ -71,13 +51,9 @@
     ];
   };
 
-  nginxContainerNet = self.lib.mkContainer {
-    inherit pkgs;
-    inherit (pkgs) system;
-    nixpkgs = pkgs.path;
+  nginxContainerNet = mkContainer {
     name = "foonet2";
     modules = [
-      { system.stateVersion = "25.11"; }
       ({ pkgs, ... }: {
         nixosContainer.network.v4.static = {
           containerPool = [ "10.42.42.2/24" ];
@@ -112,47 +88,14 @@ in {
           interfaces.eth1.useDHCP = true;
         };
 
-        # from containers-imperative.nix
-        virtualisation.additionalPaths =
-          let
-            emptyContainer = self.lib.mkContainer {
-              inherit pkgs;
-              inherit (pkgs) system;
-              nixpkgs = pkgs.path;
-              name = "bar";
-              modules = [
-                ({ pkgs, ... }: {
-                  environment.systemPackages = [ pkgs.hello ];
-                })
-              ];
-            };
-          in
-          with pkgs; [
-            perl538Packages.Env
-            hello
-            bash
-            bash.debug
-            perl538Packages.ConfigIniFiles
-            perl538
-            gcc13
-            stdenv
-            stdenvNoCC
-            emptyContainer
-            libxslt
-            desktop-file-utils
-            texinfo
-            docbook5
-            libxml2
-            docbook_xsl_ns
-            xorg.lndir
-            documentation-highlighter
-            nixos-nspawn
-            sudo-nspawn
-            nginxStable
-            coreutils
-            gixy
-            mailcap
-          ];
+        virtualisation.additionalPaths = [
+          emptyContainer
+          helloContainer
+          nginxContainer
+          nginxContainerZone
+          nginxContainerZone2
+          nginxContainerNet
+        ];
       };
     in
     {
@@ -182,11 +125,7 @@ in {
 
       def create_container(vm):
           print(vm.succeed(
-            "nixos-nspawn -v create foo --config ${pkgs.writeText "foo.nix" ''
-              { pkgs, ... }: {
-                environment.systemPackages = [ pkgs.hello ];
-              }
-            ''}"
+            "nixos-nspawn -v create foo --profile ${helloContainer}"
           ))
 
       onlyimperative.wait_for_unit("multi-user.target")
@@ -215,6 +154,7 @@ in {
                 }
               ''} 2>&1"
           )
+          print(out)
 
           # expect python backtrace
           assert "manager.py" in out
@@ -222,10 +162,6 @@ in {
           assert "while evaluating derivation 'bar'" in out
           # expect actual error
           assert "Experimental 'sharedNix'-feature isn't supported for imperative containers!" in out
-
-          onlyimperative.succeed(
-              "nixos-nspawn create bar --config ${empty}"
-          )
 
       with subtest("Update / Rollback"):
           out = onlyimperative.fail(
@@ -235,16 +171,15 @@ in {
                 }
               ''}"
           )
+          print(out)
 
           assert "'dynamic' is currently not supported" in out
           onlyimperative.succeed("systemd-run -M foo --pty --quiet /bin/sh --login -c 'hello'")
 
           # Try removing the package we added
           out = onlyimperative.succeed(
-              "nixos-nspawn update 2>&1 foo --strategy reload --config ${pkgs.writeText "foo2.nix" ''{
-              }''}"
+              "nixos-nspawn update 2>&1 foo --strategy reload --profile ${emptyContainer}"
           )
-
           print(out)
 
           assert "Reloading" in out
@@ -262,7 +197,7 @@ in {
 
           # Existing container cannot be re-created
           onlyimperative.fail(
-              "nixos-nspawn create foo --config ${empty}"
+              "nixos-nspawn create foo --profile ${emptyContainer}"
           )
 
       with subtest("Networking"):
@@ -270,14 +205,9 @@ in {
           # FIXME find out if this has changed and what we should do here.
           #onlyimperative.fail("ping -c4 foo >&2")
           out = onlyimperative.succeed(
-              "nixos-nspawn create foonet --config ${pkgs.writeText "foo2.nix" ''
-                { pkgs, ... }: {
-                  services.nginx.enable = true;
-                  services.nginx.virtualHosts.localhost.default = true;
-                  networking.firewall.allowedTCPPorts = [ 80 ];
-                }
-              ''}"
+              "nixos-nspawn create foonet --profile ${nginxContainer}"
           )
+          print(out)
 
           # RFC1918 private IP assigned via DHCP
           onlyimperative.wait_until_succeeds("ping -c4 foonet")
@@ -291,13 +221,7 @@ in {
           onlyimperative.fail("test -e /etc/systemd/nspawn/foonet.nspawn")
 
           imperativeanddeclarative.succeed(
-              "nixos-nspawn create foozone --config ${pkgs.writeText "foo2.nix" ''
-                { pkgs, ... }: {
-                  services.nginx.enable = true;
-                  networking.firewall.allowedTCPPorts = [ 80 ];
-                  nixosContainer.zone = "foo";
-                }
-              ''}"
+              "nixos-nspawn create foozone --profile ${nginxContainerZone}"
           )
 
           imperativeanddeclarative.wait_until_succeeds("ip a s vb-foozone")
@@ -305,11 +229,7 @@ in {
 
           # Don't start a container if zone does not exist
           imperativeanddeclarative.fail(
-              "nixos-nspawn create foozone2 --config ${pkgs.writeText "foo2.nix" ''
-                { pkgs, ... }: {
-                  nixosContainer.zone = "foo2";
-                }
-              ''}"
+              "nixos-nspawn create foozone2 --profile ${nginxContainerZone2}"
           )
 
       with subtest("Removal"):
@@ -319,16 +239,7 @@ in {
 
       with subtest("Static networking"):
           onlyimperative.succeed(
-              "nixos-nspawn create foonet2 --config ${pkgs.writeText "foonet2.nix" ''
-                {
-                  nixosContainer.network.v4.static = {
-                    containerPool = [ "10.42.42.2/24" ];
-                    hostAddresses = [
-                      "10.42.42.1/24"
-                    ];
-                  };
-                }
-              ''}"
+              "nixos-nspawn create foonet2 --profile ${nginxContainerNet}"
           )
 
           onlyimperative.wait_until_succeeds("ping >&2 -c4 10.42.42.2")

@@ -50,22 +50,29 @@ class NixosNspawnManager(object):
         self,
         container: Container,
         config: Optional[Path] = None,
+        profile: Optional[Path] = None,
         flake: Optional[str] = None,
         system: str = default_system,
         update: bool = False,
     ) -> Path:
         if config:
             return container.build_nixos_config(config, update=update, show_trace=self.show_trace)
-        if flake:
+        elif flake:
             return container.build_flake_config(
                 flake, system=system, update=update, show_trace=self.show_trace
             )
-        raise AssertionError("Either a config or flake must be specified when calling build()")
+        elif profile:
+            return container.build_from_profile(profile, update=update)
+
+        raise AssertionError(
+            "Either a config, flake, or profile must be specified when calling build()"
+        )
 
     def create(
         self,
         name: str,
         config: Optional[Path] = None,
+        profile: Optional[Path] = None,
         flake: Optional[str] = None,
         system: str = default_system,
     ) -> Container:
@@ -75,11 +82,13 @@ class NixosNspawnManager(object):
             raise NixosNspawnManagerError(f"Container [bold]{name}[/bold] already exists!")
 
         self.__logger.debug(
-            "Creating container [bold]%s[/bold] with config '%s'", name, config or flake
+            "Creating container [bold]%s[/bold] with config '%s'",
+            name,
+            config or flake or profile,
         )
 
         try:
-            self.build(container, config, flake, system)
+            self.build(container, config, profile, flake, system)
             self._check_network_zone(container)
             container.write_config_files()
             container.create_state_directories()
@@ -99,6 +108,7 @@ class NixosNspawnManager(object):
         self,
         container: Container,
         config: Optional[Path] = None,
+        profile: Optional[Path] = None,
         flake: Optional[str] = None,
         system: str = default_system,
         activation_strategy: Optional[str] = None,
@@ -106,11 +116,11 @@ class NixosNspawnManager(object):
         self.__logger.debug(
             "Updating container [bold]%s[/bold] with config '%s'. Activation strategy override: %s",
             container.name,
-            config or flake,
+            config or flake or profile,
             activation_strategy,
         )
 
-        self.build(container, config, flake, system, update=True)
+        self.build(container, config, profile, flake, system, update=True)
         self._check_network_zone(container)
         container.write_config_files()
         container.create_state_directories()

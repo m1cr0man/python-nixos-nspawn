@@ -5,7 +5,7 @@ from typing import Optional
 from ..constants import RC_CONTAINER_MISSING
 from ..metadata import default_system
 from ._command import BaseCommand, Command
-from ._shared import check_config_or_flake
+from ._shared import check_config_source
 
 
 class CreateCommand(BaseCommand, Command):
@@ -19,7 +19,8 @@ class CreateCommand(BaseCommand, Command):
     def register_arguments(cls, parser: ArgumentParser) -> None:
         super().register_arguments(parser)
         parser.add_argument("--config", help="Container configuration file", type=Path)
-        parser.add_argument("--flake", help="Container configuration flake path", type=str)
+        parser.add_argument("--profile", help="Container system profile path", type=Path)
+        parser.add_argument("--flake", help="Container configuration flake URL", type=str)
         parser.add_argument(
             "--system",
             help=f"The host platform name. The default ({default_system})"
@@ -31,14 +32,15 @@ class CreateCommand(BaseCommand, Command):
     def run(self) -> int:
         name: str = self.parsed_args.name
         config: Optional[Path] = self.parsed_args.config
+        profile: Optional[Path] = self.parsed_args.profile
         flake: Optional[str] = self.parsed_args.flake
         system: str = self.parsed_args.system
 
-        if rc := check_config_or_flake(config, flake):
+        if rc := check_config_source(config, profile, flake):
             return rc
 
         try:
-            container = self.manager.create(name=name, config=config, flake=flake, system=system)
+            container = self.manager.create(name=name, config=config, profile=profile, flake=flake, system=system)
         except ValueError:
             # FIXME I'm not sure how I ever came to the conlusion that ValueError is a dupe error
             self._rprint(f"[red]Container [bold]{name}[/bold] already exists![/red]")
