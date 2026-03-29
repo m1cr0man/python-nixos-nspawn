@@ -266,15 +266,11 @@ in
       # Instead of creating a drv for each json file, write them all in one runCommand.
       environment.etc."nixos-nspawn/declarative.d".source =
         let
-          jsonCfg = containerConfig:
-            builtins.toJSON (
-              builtins.removeAttrs containerConfig [ "system-config" "nixpkgs" "toplevel" ]
-            );
           writers = lib.foldlAttrs
             (acc: name: containerConfig: acc + ''
               # START ${name}
               cat > '${name}.json' << 'EOF'
-              ${jsonCfg containerConfig}
+              ${shared.jsonContent containerConfig}
               EOF
               # END ${name}
             '')

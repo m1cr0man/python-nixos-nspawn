@@ -6,6 +6,13 @@ in
 rec {
   ifacePrefix = type: if type == "veth" then "ve" else "vz";
 
+  # Options ignored when creating data.json files.
+  # Also controls what options only trigger a container reload.
+  ignoredOptions = [ "system-config" "nixpkgs" "toplevel" "timeoutStartSec" ];
+  jsonContent = containerConfig: builtins.toJSON (
+    builtins.removeAttrs containerConfig ignoredOptions
+  );
+
   mkNetworkingOpts = type:
     let
       mkIPOptions = v: assert elem v [ 4 6 ]; {

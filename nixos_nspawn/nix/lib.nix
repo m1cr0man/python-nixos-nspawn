@@ -74,9 +74,7 @@ rec {
 
       nspawnUnit = host.config.systemd.nspawn.${name}.unit;
       serviceOverrides = pkgs.writeText "overrides.conf" host.config.systemd.units."systemd-nspawn@${name}.service".text;
-      jsonConfig = pkgs.writeText "data.json" (builtins.toJSON (
-        builtins.removeAttrs containerInstance [ "system-config" "nixpkgs" "toplevel" ]
-      ));
+      jsonConfig = pkgs.writeText "data.json" (shared.jsonContent containerInstance);
 
       # Only select network units defined by this module.
       nspawnNetworks = pkgs.lib.optionals
