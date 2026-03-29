@@ -97,10 +97,15 @@ in
                 services.nginx.enable = true;
               };
             }
+            {
+              reload.system-config = {
+                services.nginx.enable = true;
+              };
+            }
           ];
 
+          # An out of band nspawn change should trigger restarts too.
           systemd.nspawn.restart.filesConfig.BindReadOnly = [ "/etc:/foo" ];
-          systemd.nspawn.reload.filesConfig.BindReadOnly = [ "/etc:/foo" ];
         };
         configchange2.configuration = { lib, pkgs, ... }: {
           imports = [ configchange.configuration ];
@@ -178,14 +183,13 @@ in
           assert "systemd-nspawn@dynamic2.service" not in units['reloading']
           assert "systemd-nspawn@dynamic2.service" not in units['restarting']
 
-          assert "systemd-nspawn@restart.service" in units['restarting']
-          assert "systemd-nspawn@restart.service" not in units['reloading']
+          assert "systemd-nspawn@restart.service" in units['stopping']
+          assert "systemd-nspawn@restart.service" in units['starting']
 
           assert "systemd-nspawn@dynamic.service" in units['reloading']
           assert "systemd-nspawn@dynamic.service" not in units['restarting']
 
           assert "systemd-nspawn@reload.service" not in units['starting']
-          assert "systemd-nspawn@restart.service" not in units['starting']
           assert "systemd-nspawn@teststop.service" in units['stopping']
           assert "systemd-nspawn@none.service" not in act_output
 

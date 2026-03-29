@@ -99,7 +99,6 @@ let
           KillSignal = "SIGRTMIN+3";
           PrivateUsers = mkDefault (if config.userNamespacing then "pick" else "no");
           LinkJournal = mkDefault (if config.ephemeral then "auto" else "guest");
-          X-ActivationStrategy = config.activation.strategy;
         };
         filesConfig = mkMerge [
           {
@@ -328,7 +327,7 @@ in
         targets.machines.wants = map (x: "systemd-nspawn@${x}.service") (attrNames (
           lib.filterAttrs (n: v: v.activation.autoStart) cfg
         ));
-        services = lib.flip lib.mapAttrs' cfg (container: { activation, timeoutStartSec, credentials, ... }:
+        services = lib.flip lib.mapAttrs' cfg (container: { activation, timeoutStartSec, credentials, ... }@containerConfig:
           lib.nameValuePair "systemd-nspawn@${container}" {
             overrideStrategy = "asDropin";
 
@@ -342,6 +341,17 @@ in
                 touch /var/lib/machines/${container}/etc/{os-release,machine-id}
               fi
             '';
+
+            restartTriggers = lib.optionals (activation.strategy != "none") [
+              (shared.jsonContent containerConfig)
+              # Some support for out of band changes
+              (builtins.toJSON [
+                config.systemd.nspawn.${container}.filesConfig
+                config.systemd.nspawn.${container}.networkConfig
+              ])
+            ];
+
+            restartIfChanged = activation.strategy != "none";
 
             serviceConfig = {
               TimeoutStartSec = timeoutStartSec;
