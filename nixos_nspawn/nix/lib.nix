@@ -32,9 +32,6 @@ rec {
       # This allows us to generate the necessary Systemd unit files
       # for the container in Nix. They are put in place by the Python
       # code after evaluation.
-      # FIXME this is bad. For any service enabled in the container, it is also enabled
-      # for this virtual hypervisor. We are generating two copies of the same system basically.
-      # All we want is the systemd nspawn + network units.
       host = import "${pkgs.path}/nixos/lib/eval-config.nix"
         {
           inherit pkgs system;
@@ -50,10 +47,6 @@ rec {
                 assertions = containerAssertions {
                   inherit lib; containerConfig = config.nixosContainer;
                 };
-
-                # Not necesssary when generating imperative containers
-                nixos.containers.enableAutostartService = false;
-                networking.resolvconf.enable = !config.services.resolved.enable;
 
                 # A bit of a hack.. Use the imperative container's config as a
                 # declarative container. This will fill in the required parts of
@@ -72,16 +65,18 @@ rec {
                 };
               };
             })
+          # Modules added here to load the user's nixosContainer settings.
           ] ++ modules;
         };
 
       containerInstance = host.config.nixos.containers.instances."${name}";
       containerSystem = containerInstance.system-config;
 
-      hostEtc = host.config.environment.etc;
-      nspawnUnit = hostEtc."systemd/nspawn/${name}.nspawn".source;
-      serviceOverrides = "${hostEtc."systemd/system".source}/systemd-nspawn@${name}.service.d/overrides.conf";
-      jsonConfig = "${hostEtc."nixos-nspawn/declarative.d".source}/${name}.json";
+      nspawnUnit = host.config.systemd.nspawn.${name}.unit;
+      serviceOverrides = pkgs.writeText "overrides.conf" host.config.systemd.units."systemd-nspawn@${name}.service".text;
+      jsonConfig = pkgs.writeText "data.json" (builtins.toJSON (
+        builtins.removeAttrs containerInstance [ "system-config" "nixpkgs" "toplevel" ]
+      ));
 
       # Only select network units defined by this module.
       nspawnNetworks = pkgs.lib.optionals
