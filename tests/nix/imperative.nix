@@ -2,7 +2,6 @@
   mkContainer = {name, modules ? []}: (self.lib.mkContainer {
     inherit pkgs name;
     inherit (pkgs) system;
-    nixpkgs = pkgs.path;
     modules = [{ system.stateVersion = "25.11"; }] ++ modules;
   });
 
