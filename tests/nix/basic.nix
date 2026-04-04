@@ -167,14 +167,15 @@ in
     # ephemeral: containers with state cleared after a reboot.
     nixos.containers.instances.ephemeral = {
       ephemeral = true;
-      network = { };
+      network.v6.addrPool = [ "fd00:beef::/64" ];
+      network.v4.addrPool = [ "192.168.102.0/28" ];
     };
   };
 
   testScript = ''
     import time
 
-    def wait_until_stopped(machine: Machine, unit: str) -> None:
+    def wait_until_stopped(machine, unit: str) -> None:
       while True:
         info = machine.get_unit_info(unit)
         if info.get("ActiveState") == "inactive":
@@ -227,7 +228,7 @@ in
 
     with subtest("Dynamic networking"):
         # Test IPv4LL, DHCP & SLAAC addrs reachability.
-        server.wait_until_succeeds("ping -6 -c3 container1 >&2")
+        server.wait_until_succeeds("ping -6 -c3 -I vz-foo container1 >&2")
         server.wait_until_succeeds("ping -c3 10.100.200.1 >&2")
         server.wait_until_succeeds("ping -c3 10.100.200.10 >&2")
 
@@ -236,6 +237,16 @@ in
         server.succeed("machinectl status container1 | grep '   fd' | xargs -I % ping % -c3")
         server.succeed(
             "machinectl status ephemeral | grep '192.168' | cut -d: -f2 | xargs ping -c3"
+        )
+
+        # Verify SLAAC on the ephemeral container
+        # 1. Check if the address is marked as 'dynamic' (SLAAC)
+        server.succeed(
+            "systemd-run -M ephemeral --pty --quiet -- ip -6 addr show dev host0 | grep -q 'dynamic'"
+        )
+        # 2. Check if a default IPv6 route exists via the host
+        server.succeed(
+            "systemd-run -M ephemeral --pty --quiet -- ip -6 route show default | grep -q 'proto ra'"
         )
 
     with subtest("DNS"):

@@ -16,37 +16,10 @@ let
   dynamicAddrsDisabled = inst:
     inst.network == null || inst.network.v4.addrPool == [ ] && inst.network.v6.addrPool == [ ];
 
-  mkRadvdSection = type: name: v6Pool:
-    assert elem type [ "veth" "zone" ];
-    ''
-      interface ${ifacePrefix type}-${name} {
-        AdvSendAdvert on;
-        ${lib.flip concatMapStrings v6Pool (x: ''
-          prefix ${x} {
-            AdvOnLink on;
-            AdvAutonomous on;
-          };
-        '')}
-      };
-    '';
-
   zoneCfg = config.nixos.containers.zones;
 
   interfaces.containers = attrNames cfg;
   interfaces.zones = attrNames config.nixos.containers.zones;
-  radvd = {
-    enable = with interfaces; containers != [ ] || zones != [ ];
-    config = builtins.concatStringsSep "\n" [
-      (concatMapStrings
-        (x: mkRadvdSection "veth" x cfg.${x}.network.v6.addrPool)
-        (lib.filter
-          (n: cfg.${n}.network != null && cfg.${n}.zone == null)
-          (attrNames cfg)))
-      (concatMapStrings
-        (x: mkRadvdSection "zone" x config.nixos.containers.zones.${x}.v6.addrPool)
-        (attrNames config.nixos.containers.zones))
-    ];
-  };
 
   mkMatchCfg = type: name:
     assert elem type [ "veth" "zone" ]; {
@@ -67,6 +40,7 @@ let
     LLDP = "yes";
     EmitLLDP = "customer-bridge";
     IPv6AcceptRA = "no";
+    IPv6SendRA = "yes";
   };
 
   recUpdate3 = a: b: c:
@@ -259,8 +233,6 @@ in
         ]) [ ]
         cfg;
 
-      services = { inherit radvd; };
-
       # In order for systemd-nspawn to know the container's configuration, write a JSON file in etc
       # Instead of creating a drv for each json file, write them all in one runCommand.
       environment.etc."nixos-nspawn/declarative.d".source =
@@ -291,6 +263,7 @@ in
               "20-${ifacePrefix "veth"}-${name}" = {
                 matchConfig = mkMatchCfg "veth" name;
                 address = config.network.v4.addrPool
+                # TODO Shouldn't be needed with ipv6Prefix Assign = true;
                 ++ config.network.v6.addrPool
                 ++ optionals (config.network.v4.static.hostAddresses != null)
                   config.network.v4.static.hostAddresses
@@ -300,6 +273,7 @@ in
                   v4Nat = config.network.v4.nat;
                   v6Nat = config.network.v6.nat;
                 };
+                ipv6Prefixes = map (p: { Prefix = p; }) config.network.v6.addrPool;
               };
             })
             { }
@@ -309,12 +283,14 @@ in
               "20-${ifacePrefix "zone"}-${name}" = {
                 matchConfig = mkMatchCfg "zone" name;
                 address = zone.v4.addrPool
+                # TODO Shouldn't be needed with ipv6Prefix Assign = true;
                 ++ zone.v6.addrPool
                 ++ zone.hostAddresses;
                 networkConfig = mkNetworkCfg true {
                   v4Nat = zone.v4.nat;
                   v6Nat = zone.v6.nat;
                 };
+                ipv6Prefixes = map (p: { Prefix = p; }) zone.v6.addrPool;
               };
             })
             { }
