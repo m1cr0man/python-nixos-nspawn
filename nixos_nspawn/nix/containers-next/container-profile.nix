@@ -4,7 +4,7 @@ let
   sudo-nspawn = if pkgs ? "sudo-nspawn" then pkgs.sudo-nspawn else sudo-nspawn';
 in
 {
-  boot.isContainer = true;
+  boot.isNspawnContainer = true;
 
   users.mutableUsers = false;
   users.allowNoPasswordLogin = true;
