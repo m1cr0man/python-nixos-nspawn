@@ -20,79 +20,80 @@
 {
   name = "containers-next-macvlan";
 
-  nodes.client = { pkgs, ... }: {
-    virtualisation.vlans = [ 2 ];
-  };
-
-  nodes.macvlan = { pkgs, lib, ... }: {
-    virtualisation.vlans = [ 2 ];
-
-    systemd.network.networks."40-eth1" = {
-      matchConfig.Name = "eth1";
-      networkConfig.DHCP = lib.mkForce "yes";
-      networkConfig.MACVLAN = "mv-eth1-host";
-      linkConfig.RequiredForOnline = "no";
-      address = lib.mkForce [ ];
-      addresses = lib.mkForce [ ];
+  nodes.client =
+    { pkgs, ... }:
+    {
+      virtualisation.vlans = [ 2 ];
     };
 
-    # Even though it's tempting to name this `mv-eth1`, this will actually break
-    # the ability to restart containers and may lead to very bad race conditions: nspawn
-    # creates macvlan interfaces on the host and moves those into the container. Since
-    # those are named `mv-<physif>` (`mv-eth1` in our case), an EEXIST will be returned
-    # in `nspawn-network.c` (see `setup_macvlans`).
-    systemd.network.networks."20-mv-eth1-host" = {
-      matchConfig.Name = "mv-eth1-host";
-      networkConfig.IPv4Forwarding = "yes";
-      dhcpV4Config.ClientIdentifier = "mac";
-      address = lib.mkForce [
-        "192.168.2.2/24"
-      ];
-    };
-    systemd.network.netdevs."20-mv-eth1-host" = {
-      netdevConfig = {
-        Name = "mv-eth1-host";
-        Kind = "macvlan";
+  nodes.macvlan =
+    { pkgs, lib, ... }:
+    {
+      virtualisation.vlans = [ 2 ];
+
+      systemd.network.networks."40-eth1" = {
+        matchConfig.Name = "eth1";
+        networkConfig.DHCP = lib.mkForce "yes";
+        networkConfig.MACVLAN = "mv-eth1-host";
+        linkConfig.RequiredForOnline = "no";
+        address = lib.mkForce [ ];
+        addresses = lib.mkForce [ ];
       };
-      extraConfig = ''
-        [MACVLAN]
-        Mode=bridge
-      '';
-    };
 
-    systemd.nspawn.vlandemo.networkConfig.MACVLAN = "eth1";
-    systemd.nspawn.ephvlan.networkConfig.MACVLAN = "eth1";
+      # Even though it's tempting to name this `mv-eth1`, this will actually break
+      # the ability to restart containers and may lead to very bad race conditions: nspawn
+      # creates macvlan interfaces on the host and moves those into the container. Since
+      # those are named `mv-<physif>` (`mv-eth1` in our case), an EEXIST will be returned
+      # in `nspawn-network.c` (see `setup_macvlans`).
+      systemd.network.networks."20-mv-eth1-host" = {
+        matchConfig.Name = "mv-eth1-host";
+        networkConfig.IPv4Forwarding = "yes";
+        dhcpV4Config.ClientIdentifier = "mac";
+        address = lib.mkForce [
+          "192.168.2.2/24"
+        ];
+      };
+      systemd.network.netdevs."20-mv-eth1-host" = {
+        netdevConfig = {
+          Name = "mv-eth1-host";
+          Kind = "macvlan";
+        };
+        macvlanConfig.Mode = "bridge";
+      };
 
-    nixos.containers =
-      let
-        mkNetworkCfg = index: {
-          systemd.network = {
-            networks."10-mv-eth1" = {
-              matchConfig.Name = "mv-eth1";
-              address = [ "192.168.2.${toString index}/24" ];
-            };
-            netdevs."10-mv-eth1" = {
-              netdevConfig.Name = "mv-eth1";
-              netdevConfig.Kind = "veth";
+      systemd.nspawn.vlandemo.networkConfig.MACVLAN = "eth1";
+      systemd.nspawn.ephvlan.networkConfig.MACVLAN = "eth1";
+
+      nixos.containers =
+        let
+          mkNetworkCfg = index: {
+            systemd.network = {
+              networks."10-mv-eth1" = {
+                matchConfig.Name = "mv-eth1";
+                address = [ "192.168.2.${toString index}/24" ];
+              };
+              netdevs."10-mv-eth1" = {
+                netdevConfig.Name = "mv-eth1";
+                netdevConfig.Kind = "veth";
+              };
             };
           };
+        in
+        {
+          instances.vlandemo = {
+            system-config = mkNetworkCfg 5;
+          };
+          instances.ephvlan = {
+            ephemeral = true;
+            system-config = mkNetworkCfg 9;
+          };
         };
-      in
-      {
-        instances.vlandemo = {
-          system-config = mkNetworkCfg 5;
-        };
-        instances.ephvlan = {
-          ephemeral = true;
-          system-config = mkNetworkCfg 9;
-        };
-      };
-  };
+    };
 
   testScript = ''
     import time
 
-    def wait_until_stopped(machine: Machine, unit: str) -> None:
+    def wait_until_stopped(machine, unit: str) -> None:
       while True:
         info = machine.get_unit_info(unit)
         if info.get("ActiveState") == "inactive":

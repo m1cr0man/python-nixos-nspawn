@@ -2,135 +2,110 @@
 let
   instances.dynamic = {
     activation.strategy = "dynamic";
-    network.v4.static = {
-      containerPool = [ "10.231.136.2/24" ];
-      hostAddresses = [ "10.231.136.1/24" ];
-    };
   };
 
-  instances.teststop = {
-    network.v4.static = {
-      containerPool = [ "10.231.137.2/24" ];
-      hostAddresses = [ "10.231.137.1/24" ];
-    };
-  };
+  instances.teststop = { };
 
   instances.restart = {
     activation.strategy = "restart";
-    network.v4.static = {
-      containerPool = [ "10.231.138.2/24" ];
-      hostAddresses = [ "10.231.138.1/24" ];
-    };
   };
 
   instances.reload = {
     activation.strategy = "reload";
-    network.v4.static = {
-      containerPool = [ "10.231.139.2/24" ];
-      hostAddresses = [ "10.231.139.1/24" ];
-    };
   };
 
   instances.none = {
     activation.strategy = "none";
-    network.v4.static = {
-      containerPool = [ "10.231.140.2/24" ];
-      hostAddresses = [ "10.231.140.1/24" ];
-    };
   };
 
   instances.dynamic2 = {
     activation.strategy = "dynamic";
-    network.v4.static = {
-      containerPool = [ "10.231.141.2/24" ];
-      hostAddresses = [ "10.231.141.1/24" ];
-    };
   };
 
   instances.static = {
     activation.strategy = "dynamic";
     zone = "foo";
-    network = {
-      v4 = {
-        static.containerPool = [ "10.231.142.2/24" ];
-        addrPool = lib.mkForce [ ];
-      };
-      v6.addrPool = lib.mkForce [ ];
-    };
   };
 in
 {
   name = "container-tests";
 
   nodes = {
-    machine = { ... }: {
-      nixos.containers = {
-        zones.foo = {
-          hostAddresses = [ "10.231.142.1/24" ];
-          v4.addrPool = [ ];
-          v6.addrPool = [ ];
+    machine =
+      { ... }:
+      {
+        nixos.containers = {
+          zones.foo = {
+            address = [
+              ""
+              "10.231.142.1/24"
+            ];
+          };
         };
-      };
 
-      specialisation = rec {
-        initial.configuration = {
-          nixos.containers.instances = instances;
-        };
-        configchange.configuration = { lib, pkgs, ... }: {
-          nixos.containers.instances = lib.mkMerge [
-            (lib.filterAttrs (name: lib.const (name != "teststop")) instances)
+        specialisation = rec {
+          initial.configuration = {
+            nixos.containers.instances = instances;
+          };
+          configchange.configuration =
+            { lib, pkgs, ... }:
             {
-              dynamic.system-config = {
-                services.nginx = {
-                  enable = true;
-                  virtualHosts."localhost" = {
-                    listen = [
-                      { addr = "10.231.136.2"; port = 80; ssl = false; }
-                    ];
+              nixos.containers.instances = lib.mkMerge [
+                (lib.filterAttrs (name: lib.const (name != "teststop")) instances)
+                {
+                  dynamic.system-config = {
+                    services.nginx = {
+                      enable = true;
+                      virtualHosts."localhost" = {
+                        listen = [
+                          {
+                            addr = "0.0.0.0";
+                            port = 80;
+                            ssl = false;
+                          }
+                        ];
+                      };
+                    };
+                    networking.firewall.allowedTCPPorts = [ 80 ];
                   };
-                };
-                networking.firewall.allowedTCPPorts = [ 80 ];
-              };
-            }
-            {
-              dynamic2.system-config = {
-                services.nginx.enable = true;
-              };
-            }
-            {
-              reload.system-config = {
-                services.nginx.enable = true;
-              };
-            }
-          ];
+                }
+                {
+                  dynamic2.system-config = {
+                    services.nginx.enable = true;
+                  };
+                }
+                {
+                  reload.system-config = {
+                    services.nginx.enable = true;
+                  };
+                }
+              ];
 
-          # An out of band nspawn change should trigger restarts too.
-          systemd.nspawn.restart.filesConfig.BindReadOnly = [ "/etc:/foo" ];
-        };
-        configchange2.configuration = { lib, pkgs, ... }: {
-          imports = [ configchange.configuration ];
-          systemd.nspawn.dynamic.filesConfig.BindReadOnly = [ "/etc:/foo" ];
-          nixos.containers.instances = lib.mkMerge [
-            (lib.filterAttrs (name: lib.const (name != "teststop")) instances)
+              # An out of band nspawn change should trigger restarts too.
+              systemd.nspawn.restart.filesConfig.BindReadOnly = [ "/etc:/foo" ];
+            };
+          configchange2.configuration =
+            { lib, pkgs, ... }:
             {
-              new = {
-                network.v4.static.containerPool = [ "10.231.150.2/24" ];
-                network.v4.static.hostAddresses = [ "10.231.150.1/24" ];
-              };
-              restart = {
-                network.v4.static.containerPool = [ "10.231.151.2/24" ];
-                network.v4.static.hostAddresses = [ "10.231.151.1/24" ];
-              };
-            }
-          ];
+              imports = [ configchange.configuration ];
+              systemd.nspawn.dynamic.filesConfig.BindReadOnly = [ "/etc:/foo" ];
+              nixos.containers.instances = lib.mkMerge [
+                (lib.filterAttrs (name: lib.const (name != "teststop")) instances)
+                {
+                  new = { };
+                  restart.system-config.users.groups.nixtest = { };
+                }
+              ];
+            };
         };
       };
-    };
   };
 
-  testScript = { nodes, ... }:
+  testScript =
+    { nodes, ... }:
     let
-      switchTo = sp: "${nodes.machine.system.build.toplevel}/specialisation/${sp}/bin/switch-to-configuration test";
+      switchTo =
+        sp: "${nodes.machine.system.build.toplevel}/specialisation/${sp}/bin/switch-to-configuration test";
     in
     ''
       from typing import Dict, List
@@ -145,13 +120,11 @@ in
           )
           machine.wait_for_unit("machines.target")
           available = machine.succeed("machinectl")
-          for i in ['dynamic', 'teststop', 'restart', 'reload']:
+          for i in ['dynamic', 'teststop', 'restart', 'reload', 'none', 'dynamic2', 'static']:
               assert i in available, f"Expected machine {i} in `machinectl output!"
+              machine.wait_until_succeeds(f"ping -4 -c2 {i} >&2")
 
-          for j in range(136, 143):
-              machine.wait_until_succeeds(f"ping -c3 10.231.{str(j)}.2 >&2")
-
-          machine.fail("curl 10.231.136.2 -sSf --connect-timeout 10")
+          machine.fail("curl dynamic -sSf --connect-timeout 10")
 
           machine.succeed("systemd-run -M static --pty --quiet -- /bin/sh --login -c 'networkctl | grep host0 | grep configured'")
 
@@ -194,10 +167,10 @@ in
           assert "systemd-nspawn@none.service" not in act_output
 
       with subtest("Check for successful activation"):
-          machine.wait_until_succeeds("curl 10.231.136.2 -sSf --connect-timeout 10")
-          machine.fail("ping -c3 10.231.137.2 -c3")
+          machine.wait_until_succeeds("curl dynamic -sSf --connect-timeout 10")
+          machine.fail("ping -4 -c3 teststop -c3")
 
-          machine.wait_until_succeeds("ping -c3 10.231.138.2 >&2")
+          machine.wait_until_succeeds("ping -4 -c3 restart >&2")
           machine.succeed(
               "systemd-run -M restart --pty --quiet -- /bin/sh --login -c 'test -e /foo/systemd'"
           )
@@ -212,13 +185,13 @@ in
               "${switchTo "configchange2"} 2>&1 | tee /dev/stderr"
           )
 
-          machine.wait_until_succeeds("ping -c3 10.231.136.2 >&2")
+          machine.wait_until_succeeds("ping -4 -c3 dynamic >&2")
 
           machine.succeed(
               "systemd-run -M dynamic --pty --quiet -- /bin/sh --login -c 'test -e /foo/systemd'"
           )
 
-          machine.wait_until_succeeds("ping -c3 10.231.150.2 >&2")
+          machine.wait_until_succeeds("ping -4 -c3 new >&2")
 
       machine.shutdown()
     '';

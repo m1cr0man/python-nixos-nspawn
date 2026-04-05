@@ -1,9 +1,20 @@
-{ pkgs, lib, self, ... }: let
-  mkContainer = {name, modules ? []}: (self.lib.mkContainer {
-    inherit pkgs name;
-    inherit (pkgs) system;
-    modules = [{ system.stateVersion = "25.11"; }] ++ modules;
-  });
+{
+  pkgs,
+  lib,
+  self,
+  ...
+}:
+let
+  mkContainer =
+    {
+      name,
+      modules ? [ ],
+    }:
+    (self.lib.mkContainer {
+      inherit pkgs name;
+      inherit (pkgs) system;
+      modules = [ { system.stateVersion = "25.11"; } ] ++ modules;
+    });
 
   emptyContainer = mkContainer {
     name = "foo";
@@ -12,112 +23,148 @@
   helloContainer = mkContainer {
     name = "foo";
     modules = [
-      ({ pkgs, ... }: {
-        environment.systemPackages = [ pkgs.hello ];
-      })
+      (
+        { pkgs, ... }:
+        {
+          environment.systemPackages = [ pkgs.hello ];
+        }
+      )
     ];
   };
 
   nginxContainer = mkContainer {
     name = "foonet";
     modules = [
-      ({ pkgs, ... }: {
-        services.nginx.enable = true;
-        services.nginx.virtualHosts.localhost.default = true;
-        networking.firewall.allowedTCPPorts = [ 80 ];
-      })
+      (
+        { pkgs, ... }:
+        {
+          services.nginx.enable = true;
+          services.nginx.virtualHosts.localhost.default = true;
+          networking.firewall.allowedTCPPorts = [ 80 ];
+        }
+      )
     ];
   };
 
   nginxContainerZone = mkContainer {
     name = "foozone";
     modules = [
-      ({ pkgs, ... }: {
-        services.nginx.enable = true;
-        networking.firewall.allowedTCPPorts = [ 80 ];
-        nixosContainer.zone = "foo";
-      })
+      (
+        { pkgs, ... }:
+        {
+          services.nginx.enable = true;
+          networking.firewall.allowedTCPPorts = [ 80 ];
+          nixosContainer.zone = "foo";
+        }
+      )
     ];
   };
 
   nginxContainerZone2 = mkContainer {
     name = "foozone2";
     modules = [
-      ({ pkgs, ... }: {
-        environment.systemPackages = [ pkgs.hello ];
-        nixosContainer.zone = "foo2";
-      })
+      (
+        { pkgs, ... }:
+        {
+          environment.systemPackages = [ pkgs.hello ];
+          nixosContainer.zone = "foo2";
+        }
+      )
     ];
   };
 
   nginxContainerNet = mkContainer {
     name = "foonet2";
     modules = [
-      ({ pkgs, ... }: {
-        nixosContainer.network.v4.static = {
-          containerPool = [ "10.42.42.2/24" ];
-          hostAddresses = [
+      (
+        { pkgs, ... }:
+        {
+          nixosContainer.hostNetworkConfig.address = [
+            ""
             "10.42.42.1/24"
           ];
-        };
-      })
+          nixosContainer.containerNetworkConfig.address = [
+            ""
+            "10.42.42.2/24"
+          ];
+        }
+      )
     ];
   };
-in {
+in
+{
   name = "nspawn-imperative";
 
   nodes =
     let
-      base = { config, pkgs, ... }: {
-        # Needed to make sure that the DHCPServer of `systemd-networkd' properly works and
-        # can assign IPv4 addresses to containers.
-        time.timeZone = "Europe/Berlin";
-        networking.firewall.allowedUDPPorts = [ 53 67 68 546 547 ];
-        environment.systemPackages = [ pkgs.jq pkgs.nixos-nspawn ];
-        nix.nixPath = [ "nixpkgs=${pkgs.path}" ];
-        nix.settings.sandbox = false;
-        nix.settings.substituters = lib.mkForce [ ]; # don't try to access cache.nixos.org
-        virtualisation.memorySize = 4096;
-        virtualisation.writableStore = true;
-        system.extraDependencies = [ pkgs.hello ];
+      base =
+        { config, pkgs, ... }:
+        {
+          # Needed to make sure that the DHCPServer of `systemd-networkd' properly works and
+          # can assign IPv4 addresses to containers.
+          networking.firewall.allowedUDPPorts = [
+            53
+            67
+            68
+            546
+            547
+          ];
+          environment.systemPackages = [
+            pkgs.jq
+            pkgs.nixos-nspawn
+          ];
+          nix.nixPath = [ "nixpkgs=${pkgs.path}" ];
+          nix.settings.sandbox = false;
+          nix.settings.substituters = lib.mkForce [ ]; # don't try to access cache.nixos.org
+          virtualisation.memorySize = 4096;
+          virtualisation.writableStore = true;
+          system.extraDependencies = [ pkgs.hello ];
 
-        networking = {
-          useDHCP = false;
-          interfaces.eth0.useDHCP = true;
-          interfaces.eth1.useDHCP = true;
+          networking = {
+            useDHCP = false;
+            interfaces.eth0.useDHCP = true;
+            interfaces.eth1.useDHCP = true;
+          };
+
+          virtualisation.additionalPaths = [
+            emptyContainer
+            helloContainer
+            nginxContainer
+            nginxContainerZone
+            nginxContainerZone2
+            nginxContainerNet
+          ];
         };
-
-        virtualisation.additionalPaths = [
-          emptyContainer
-          helloContainer
-          nginxContainer
-          nginxContainerZone
-          nginxContainerZone2
-          nginxContainerNet
-        ];
-      };
     in
     {
-      imperativeanddeclarative = { pkgs, ... }: {
-        imports = [ base ];
-        nixos.containers.instances.bar = {
-          system-config.environment.systemPackages = [ pkgs.hello ];
-          zone = "foo";
-        };
+      imperativeanddeclarative =
+        { pkgs, ... }:
+        {
+          imports = [ base ];
+          nixos.containers.instances.bar = {
+            system-config.environment.systemPackages = [ pkgs.hello ];
+            zone = "foo";
+          };
 
-        nixos.containers.zones = {
-          foo.hostAddresses = [ "10.100.200.1/24" ];
+          nixos.containers.zones = {
+            foo.address = [
+              ""
+              "10.100.200.1/24"
+            ];
+          };
         };
-      };
-      onlyimperative = { pkgs, ... }: {
-        imports = [ base ];
-      };
+      onlyimperative =
+        { pkgs, ... }:
+        {
+          imports = [ base ];
+        };
     };
 
   testScript =
     let
-      empty = pkgs.writeText "empty.nix" ''{
-  }'';
+      empty = pkgs.writeText "empty.nix" ''
+        {
+          }'';
     in
     ''
       start_all()

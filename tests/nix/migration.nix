@@ -1,168 +1,213 @@
-{ self, pkgs, lib, ... }:
+{
+  self,
+  pkgs,
+  lib,
+  ...
+}:
 let
   hostIP = "192.168.1.1";
   containerIP = "192.168.1.5";
   clientIP = "192.168.1.23";
 
-  legacy = { pkgs, ... }: {
-    networking.useNetworkd = lib.mkOverride 60 false;
-    networking.macvlans.mv-eth1-host = {
-      interface = "eth1";
-      mode = "bridge";
-    };
-    networking.interfaces.eth1.ipv4.addresses = lib.mkForce [ ];
-    networking.interfaces.mv-eth1-host = {
-      ipv4.addresses = [{ address = "${hostIP}"; prefixLength = 24; }];
-    };
-    containers.test1 = {
-      macvlans = [ "eth1" ];
+  legacy =
+    { pkgs, ... }:
+    {
+      networking.useNetworkd = lib.mkOverride 60 false;
+      networking.macvlans.mv-eth1-host = {
+        interface = "eth1";
+        mode = "bridge";
+      };
+      networking.interfaces.eth1.ipv4.addresses = lib.mkForce [ ];
+      networking.interfaces.mv-eth1-host = {
+        ipv4.addresses = [
+          {
+            address = "${hostIP}";
+            prefixLength = 24;
+          }
+        ];
+      };
+      containers.test1 = {
+        macvlans = [ "eth1" ];
 
-      config = {
-        networking.interfaces.mv-eth1 = {
-          ipv4.addresses = [{ address = containerIP; prefixLength = 24; }];
-        };
-        services.nginx = {
-          enable = lib.mkOverride 50 true;
-          virtualHosts."localhost" = {
-            listen = [
-              { addr = "${containerIP}"; port = 80; ssl = false; }
+        config = {
+          networking.interfaces.mv-eth1 = {
+            ipv4.addresses = [
+              {
+                address = containerIP;
+                prefixLength = 24;
+              }
             ];
           };
-        };
-        systemd.services.nginx.wants = [ "network.target" ];
-        systemd.services.nginx.after = [ "network.target" ];
-        networking.firewall.allowedTCPPorts = [ 80 ];
-        # Fix for infinite recursion during build.
-        # See https://github.com/NixOS/nixpkgs/issues/353225
-        networking.resolvconf.enable = false;
-      };
-    };
-    containers.test2 = {
-      privateNetwork = true;
-      hostAddress = "10.231.136.1";
-      localAddress = "10.231.136.2";
-      config = {
-        networking.resolvconf.enable = false;
-      };
-    };
-  };
-  networkd = { pkgs, ... }: {
-    networking = {
-      useNetworkd = lib.mkOverride 50 true;
-      useDHCP = false;
-      interfaces.eth0.useDHCP = true;
-    };
-
-    # Also check if old containers can co-exist
-    containers.test3 = {
-      privateNetwork = true;
-      hostAddress = "10.232.13.1";
-      localAddress = "10.232.13.2";
-      config = {
-        networking.resolvconf.enable = false;
-      };
-    };
-
-    # Corresponding networkd config for macvlans
-    systemd.nspawn.test1.networkConfig.MACVLAN = "eth1";
-    systemd.network.networks."40-eth0".linkConfig.RequiredForOnline = "no";
-    systemd.network.networks."40-eth1" = {
-      matchConfig.Name = "eth1";
-      networkConfig.DHCP = lib.mkForce "yes";
-      dhcpConfig.UseDNS = "no";
-      networkConfig.MACVLAN = "mv-eth1-host";
-      linkConfig.RequiredForOnline = "no";
-      address = lib.mkForce [ ];
-      addresses = lib.mkForce [ ];
-    };
-    systemd.network.networks."20-mv-eth1-host" = {
-      matchConfig.Name = "mv-eth1-host";
-      networkConfig.IPv4Forwarding = "yes";
-      networkConfig.IPv6Forwarding = "yes";
-      dhcpV4Config.ClientIdentifier = "mac";
-      linkConfig.RequiredForOnline = "no";
-      address = lib.mkForce [
-        "${hostIP}/24"
-      ];
-    };
-    systemd.network.netdevs."20-mv-eth1-host" = {
-      netdevConfig = {
-        Name = "mv-eth1-host";
-        Kind = "macvlan";
-      };
-      extraConfig = ''
-        [MACVLAN]
-        Mode=bridge
-      '';
-    };
-
-    nixos.containers.instances = {
-      # Corresponding config for test1 with the new interface
-      test1.system-config = {
-        systemd.network = {
-          networks."10-mv-eth1" = {
-            matchConfig.Name = "mv-eth1";
-            address = [ "${containerIP}/24" ];
+          services.nginx = {
+            enable = lib.mkOverride 50 true;
+            virtualHosts."localhost" = {
+              listen = [
+                {
+                  addr = "${containerIP}";
+                  port = 80;
+                  ssl = false;
+                }
+              ];
+            };
           };
-          netdevs."10-mv-eth1" = {
-            netdevConfig.Name = "mv-eth1";
-            netdevConfig.Kind = "veth";
-          };
+          systemd.services.nginx.wants = [ "network.target" ];
+          systemd.services.nginx.after = [ "network.target" ];
+          networking.firewall.allowedTCPPorts = [ 80 ];
+          # Fix for infinite recursion during build.
+          # See https://github.com/NixOS/nixpkgs/issues/353225
+          networking.resolvconf.enable = false;
         };
-        services.nginx = {
-          enable = true;
-          virtualHosts."localhost" = {
-            listen = [
-              { addr = "${containerIP}"; port = 80; ssl = false; }
-            ];
-          };
-        };
-        networking.firewall.allowedTCPPorts = [ 80 ];
       };
-      # Config for test2 with the new interface
-      test2 = {
-        network.v4.static.containerPool = [ "10.231.136.2/24" ];
-        network.v4.static.hostAddresses = [ "10.231.136.1/24" ];
-        userNamespacing = true;
+      containers.test2 = {
+        privateNetwork = true;
+        hostAddress = "10.231.136.1";
+        localAddress = "10.231.136.2";
+        config = {
+          networking.resolvconf.enable = false;
+        };
       };
     };
-  };
+  networkd =
+    { pkgs, ... }:
+    {
+      networking = {
+        useNetworkd = lib.mkOverride 50 true;
+        useDHCP = false;
+        interfaces.eth0.useDHCP = true;
+      };
+
+      # Also check if old containers can co-exist
+      containers.test3 = {
+        privateNetwork = true;
+        hostAddress = "10.232.13.1";
+        localAddress = "10.232.13.2";
+        config = {
+          networking.resolvconf.enable = false;
+        };
+      };
+
+      # Corresponding networkd config for macvlans
+      systemd.nspawn.test1.networkConfig.MACVLAN = "eth1";
+      systemd.network.networks."40-eth0".linkConfig.RequiredForOnline = "no";
+      systemd.network.networks."40-eth1" = {
+        matchConfig.Name = "eth1";
+        networkConfig.DHCP = lib.mkForce "yes";
+        dhcpConfig.UseDNS = "no";
+        networkConfig.MACVLAN = "mv-eth1-host";
+        linkConfig.RequiredForOnline = "no";
+        address = lib.mkForce [ ];
+        addresses = lib.mkForce [ ];
+      };
+      systemd.network.networks."20-mv-eth1-host" = {
+        matchConfig.Name = "mv-eth1-host";
+        networkConfig.IPv4Forwarding = "yes";
+        networkConfig.IPv6Forwarding = "yes";
+        dhcpV4Config.ClientIdentifier = "mac";
+        linkConfig.RequiredForOnline = "no";
+        address = lib.mkForce [
+          "${hostIP}/24"
+        ];
+      };
+      systemd.network.netdevs."20-mv-eth1-host" = {
+        netdevConfig = {
+          Name = "mv-eth1-host";
+          Kind = "macvlan";
+        };
+        extraConfig = ''
+          [MACVLAN]
+          Mode=bridge
+        '';
+      };
+
+      nixos.containers.instances = {
+        # Corresponding config for test1 with the new interface
+        test1.system-config = {
+          systemd.network = {
+            networks."10-mv-eth1" = {
+              matchConfig.Name = "mv-eth1";
+              address = [ "${containerIP}/24" ];
+            };
+            netdevs."10-mv-eth1" = {
+              netdevConfig.Name = "mv-eth1";
+              netdevConfig.Kind = "veth";
+            };
+          };
+          services.nginx = {
+            enable = true;
+            virtualHosts."localhost" = {
+              listen = [
+                {
+                  addr = "${containerIP}";
+                  port = 80;
+                  ssl = false;
+                }
+              ];
+            };
+          };
+          networking.firewall.allowedTCPPorts = [ 80 ];
+        };
+        # Config for test2 with the new interface
+        test2 = {
+          containerNetworkConfig.address = [
+            ""
+            "10.231.136.2/24"
+          ];
+          hostNetworkConfig.address = [
+            ""
+            "10.231.136.1/24"
+          ];
+          userNamespacing = true;
+        };
+      };
+    };
 in
 {
   name = "containers-migration";
 
   nodes = {
-    machine = { pkgs, ... }: {
-      networking.primaryIPAddress = lib.mkForce hostIP;
+    machine =
+      { pkgs, ... }:
+      {
+        networking.primaryIPAddress = lib.mkForce hostIP;
 
-      # Switching network stacks entirely isn't really possible. So just reboot
-      # (to simulate the update, a bootloader which boots into the new config is needed).
-      virtualisation.useBootLoader = true;
-      boot.loader.timeout = 1;
-      boot.loader.grub.enable = true;
-      boot.loader.grub.extraConfig = "serial; terminal_output serial";
+        # Switching network stacks entirely isn't really possible. So just reboot
+        # (to simulate the update, a bootloader which boots into the new config is needed).
+        virtualisation.useBootLoader = true;
+        boot.loader.timeout = 1;
+        boot.loader.grub.enable = true;
+        boot.loader.grub.extraConfig = "serial; terminal_output serial";
 
-      imports = [ legacy ];
+        imports = [ legacy ];
 
-      specialisation.networkd.configuration = { pkgs, ... }: {
-        imports = [ self.nixosModules.hypervisor networkd ];
+        specialisation.networkd.configuration =
+          { pkgs, ... }:
+          {
+            imports = [
+              self.nixosModules.hypervisor
+              networkd
+            ];
+          };
       };
-    };
 
-    client = { pkgs, lib, ... }: {
-      networking.primaryIPAddress = lib.mkForce clientIP;
-      virtualisation.vlans = [ 1 ];
-      networking = {
-        useDHCP = false;
-        interfaces.eth0.useDHCP = true;
-        interfaces.eth1.useDHCP = true;
+    client =
+      { pkgs, lib, ... }:
+      {
+        networking.primaryIPAddress = lib.mkForce clientIP;
+        virtualisation.vlans = [ 1 ];
+        networking = {
+          useDHCP = false;
+          interfaces.eth0.useDHCP = true;
+          interfaces.eth1.useDHCP = true;
+        };
       };
-    };
   };
 
-  testScript = { nodes, ... }:
+  testScript =
+    { nodes, ... }:
     let
-      switchTo = sp: "${nodes.machine.system.build.toplevel}/specialisation/${sp}/bin/switch-to-configuration boot --install-bootloader";
+      switchTo =
+        sp:
+        "${nodes.machine.system.build.toplevel}/specialisation/${sp}/bin/switch-to-configuration boot --install-bootloader";
     in
     ''
       client.start()

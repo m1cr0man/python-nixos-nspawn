@@ -1,176 +1,236 @@
-{ self, config, pkgs, ... }:
+{
+  self,
+  config,
+  pkgs,
+  ...
+}:
 let
   inherit (import "${pkgs.path}/nixos/tests/ssh-keys.nix" pkgs)
-    snakeOilPrivateKey snakeOilPublicKey;
+    snakeOilPrivateKey
+    snakeOilPublicKey
+    ;
 in
 {
   name = "container-tests";
 
   # Just an arbitrary `client'-machine to test the public endpoints
   # of containers hosted on a different server.
-  nodes.client = { pkgs, ... }: {
-    virtualisation.vlans = [ 1 ];
-    networking.firewall.trustedInterfaces = [ "eth1" ];
-    systemd.network.networks."10-eth1" = {
-      matchConfig.Name = "eth1";
-      address = [ "fd23::1/64" ];
-      routes = [
-        { Destination = "fd24::1/64"; }
-      ];
+  nodes.client =
+    { pkgs, ... }:
+    {
+      virtualisation.vlans = [ 1 ];
+      networking.firewall.trustedInterfaces = [ "eth1" ];
+      systemd.network.networks."10-eth1" = {
+        matchConfig.Name = "eth1";
+        address = [ "fd23::1/64" ];
+        routes = [
+          { Destination = "fd24::1/64"; }
+        ];
+      };
     };
-  };
 
   # Demo server which hosts nspawn machines.
-  nodes.server = { pkgs, lib, config, ... }: {
-    ### Basic networking parts to get the setup up and running
+  nodes.server =
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
+    {
+      ### Basic networking parts to get the setup up and running
 
-    virtualisation.vlans = [ 1 ];
-    networking = {
-      firewall.allowedTCPPorts = [ 80 ];
-    };
-
-    # `server' is supposed to use `fd24::1/64`. However the test network in QEMU
-    # doesn't take care of neighbour resolution via NDP. To work around this, `server'
-    # proxies NDP traffic of container IPs.
-    services.ndppd = {
-      enable = true;
-      proxies.eth1.rules."fd24::2/64" = { };
-    };
-
-    # Needed to make sure that the DHCPServer of `systemd-networkd' properly works and
-    # can assign IPv4 addresses to containers.
-    time.timeZone = "Europe/Berlin";
-    networking.firewall.allowedUDPPorts = [ 53 67 68 546 547 ];
-
-    # Local authoritative DNS server. Used to confirm how DNS is handled by nspawn by default.
-    services.bind = {
-      enable = true;
-      extraOptions = "empty-zones-enable no;";
-      listenOnIpv6 = [ "fd24::1" ];
-      cacheNetworks = [ "fd24::/64" ];
-      zones = [
-        {
-          name = ".";
-          master = true;
-          file = pkgs.writeText "root.zone" ''
-            $TTL 3600
-            . IN SOA ns.example.org. admin.example.org. ( 1 3h 1h 1w 1d )
-            . IN NS ns.example.org.
-
-            ns.example.org. IN AAAA fd24::1
-            client.lan. IN AAAA fd23::1
-
-            1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.4.2.d.f.ip6.arpa. 1h IN PTR ns.example.org.
-          '';
-        }
-      ];
-    };
-
-    # Reverse-proxy to expose the contents of container0:80.
-    # Address hard-coded as Nginx will not attempt nss-mymachines lookup
-    # and LLMNR is not permitted in the firewall by default.
-    services.nginx = {
-      enable = true;
-      virtualHosts."localhost" = {
-        locations."/".proxyPass = "http://[fd24::2]";
+      virtualisation.vlans = [ 1 ];
+      networking = {
+        firewall.allowedTCPPorts = [ 80 ];
       };
-    };
 
-    # IPv4/IPv6 connectivity in the test network
-    systemd.network.config.networkConfig.IPv6Forwarding = "yes";
-    systemd.network.networks."10-eth1" = {
-      matchConfig.Name = "eth1";
-      address = [ "fd24::1/64" ];
-      networkConfig = {
-        IPv4Forwarding = "yes";
-        DNS = "fd24::1";
+      # `server' is supposed to use `fd24::1/64`. However the test network in QEMU
+      # doesn't take care of neighbour resolution via NDP. To work around this, `server'
+      # proxies NDP traffic of container IPs.
+      services.ndppd = {
+        enable = true;
+        proxies.eth1.rules."fd24::2/64" = { };
       };
-      routes = [
-        { Destination = "fd23::1/64"; }
+
+      # Needed to make sure that the DHCPServer of `systemd-networkd' properly works and
+      # can assign IPv4 addresses to containers.
+      networking.firewall.allowedUDPPorts = [
+        53
+        67
+        68
+        546
+        547
       ];
-    };
 
-    ### Eval test to make sure that we can query options of containers during evaluation
+      # Local authoritative DNS server. Used to confirm how DNS is handled by nspawn by default.
+      services.bind = {
+        enable = true;
+        extraOptions = "empty-zones-enable no;";
+        listenOnIpv6 = [ "fd24::1" ];
+        cacheNetworks = [ "fd24::/64" ];
+        zones = [
+          {
+            name = ".";
+            master = true;
+            file = pkgs.writeText "root.zone" ''
+              $TTL 3600
+              . IN SOA ns.example.org. admin.example.org. ( 1 3h 1h 1w 1d )
+              . IN NS ns.example.org.
 
-    environment.etc."container-exposed-nginx-hosts".text = with lib;
-      concatStringsSep " "
-        (attrNames config.nixos.containers.instances.container0.system-config.config.services.nginx.virtualHosts);
+              ns.example.org. IN AAAA fd24::1
+              client.lan. IN AAAA fd23::1
 
-    ### Test containers + corresponding zones
-
-    # container0: use ULA IPv6 addr and let nginx listen to it. Used
-    #  to demonstrate that containers can serve to the outer network.
-    systemd.network.networks."20-ve-container0".routes = [
-      { Destination = "fd24::2"; }
-    ];
-    nixos.containers.instances.container0 = {
-      network.v6.static = {
-        containerPool = [ "fd24::2/64" ];
-        hostAddresses = [ "fd24::3/64" ];
-      };
-      network.v6.addrPool = lib.mkForce [ ];
-      credentials = [
-        {
-          id = "snens";
-          path = "${pkgs.writeText "totallysecret" "abc"}";
-        }
-      ];
-      system-config = { pkgs, ... }: {
-        networking.firewall.allowedTCPPorts = [ 80 ];
-        systemd.services.systemd-networkd.environment.SYSTEMD_LOG_LEVEL = "debug";
-        services.openssh.enable = true;
-        users.users.root.openssh.authorizedKeys.keys = [
-          snakeOilPublicKey
+              1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.4.2.d.f.ip6.arpa. 1h IN PTR ns.example.org.
+            '';
+          }
         ];
-        services.nginx = {
-          enable = true;
-          virtualHosts."localhost" = {
-            listen = [
-              { addr = "[fd24::2]"; port = 80; ssl = false; }
+      };
+
+      # Reverse-proxy to expose the contents of container0:80.
+      # Address hard-coded as Nginx will not attempt nss-mymachines lookup
+      # and LLMNR is not permitted in the firewall by default.
+      services.nginx = {
+        enable = true;
+        virtualHosts."localhost" = {
+          locations."/".proxyPass = "http://[fd24::2]";
+        };
+      };
+
+      # IPv4/IPv6 connectivity in the test network
+      systemd.network.config.networkConfig.IPv6Forwarding = "yes";
+      systemd.network.networks."10-eth1" = {
+        matchConfig.Name = "eth1";
+        address = [ "fd24::1/64" ];
+        networkConfig = {
+          IPv4Forwarding = "yes";
+          DNS = "fd24::1";
+        };
+        routes = [
+          { Destination = "fd23::1/64"; }
+        ];
+      };
+
+      ### Eval test to make sure that we can query options of containers during evaluation
+
+      environment.etc."container-exposed-nginx-hosts".text =
+        with lib;
+        concatStringsSep " " (
+          attrNames config.nixos.containers.instances.container0.system-config.config.services.nginx.virtualHosts
+        );
+
+      ### Test containers + corresponding zones
+
+      # container0: use ULA IPv6 addr and let nginx listen to it. Used
+      #  to demonstrate that containers can serve to the outer network.
+      nixos.containers.instances.container0 = {
+        containerNetworkConfig = {
+          address = [ "fd24::2/64" ];
+          dhcpV6Config.UseAddress = false;
+        };
+        hostNetworkConfig = {
+          address = [ "fd24::3/64" ];
+          routes = [ { Destination = "fd24::2"; } ];
+        };
+        credentials = [
+          {
+            id = "snens";
+            path = "${pkgs.writeText "totallysecret" "abc"}";
+          }
+        ];
+        system-config =
+          { pkgs, ... }:
+          {
+            networking.firewall.allowedTCPPorts = [ 80 ];
+            systemd.services.systemd-networkd.environment.SYSTEMD_LOG_LEVEL = "debug";
+            services.openssh.enable = true;
+            users.users.root.openssh.authorizedKeys.keys = [
+              snakeOilPublicKey
             ];
+            services.nginx = {
+              enable = true;
+              virtualHosts."localhost" = {
+                listen = [
+                  {
+                    addr = "[fd24::2]";
+                    port = 80;
+                    ssl = false;
+                  }
+                ];
+              };
+            };
           };
+      };
+
+      # container1: mount only needed store-paths into the container rather than sharing the full store
+      #  and to test DNS from the host network.
+      systemd.network.networks."20-ve-container1".networkConfig.DNS = "fd24::1";
+      nixos.containers.instances.container1 = {
+        sharedNix = false;
+        activation.strategy = "restart";
+        zone = "foo";
+        containerNetworkConfig = {
+          address = [
+            ""
+            "10.100.200.10/24"
+          ];
+          networkConfig.DNS = "fd24::1";
+        };
+        system-config =
+          { pkgs, ... }:
+          {
+            environment.systemPackages = [
+              pkgs.hello
+              pkgs.nmap
+              pkgs.dnsutils
+            ];
+            systemd.services.systemd-networkd.environment.SYSTEMD_LOG_LEVEL = "debug";
+          };
+      };
+
+      # container2: to test virtual zones and special resolv.conf behavior.
+      nixos.containers.zones.foo = {
+        address = [
+          ""
+          "10.100.200.1/24"
+        ];
+        ipv6Prefixes = [
+          {
+            Prefix = "fd25::/64";
+            Assign = true;
+          }
+        ];
+      };
+      systemd.nspawn.container2.execConfig.ResolvConf = "bind-host";
+      nixos.containers.instances.container2 = {
+        zone = "foo";
+        containerNetworkConfig.address = [
+          ""
+          "10.100.200.11/24"
+        ];
+      };
+
+      # publicnet: share the network with the host entirely, i.e. no new namespace.
+      nixos.containers.instances.publicnet = { };
+      systemd.nspawn.publicnet.networkConfig.VirtualEthernet = "no";
+
+      # ephemeral: containers with state cleared after a reboot.
+      nixos.containers.instances.ephemeral = {
+        ephemeral = true;
+        hostNetworkConfig = {
+          address = [
+            ""
+            "192.168.102.1/28"
+          ];
+          ipv6Prefixes = [
+            {
+              Prefix = "fd00:beef::/64";
+              Assign = true;
+            }
+          ];
         };
       };
     };
-
-    # container1: mount only needed store-paths into the container rather than sharing the full store
-    #  and to test DNS from the host network.
-    systemd.network.networks."20-ve-container1".networkConfig.DNS = "fd24::1";
-    nixos.containers.instances.container1 = {
-      sharedNix = false;
-      activation.strategy = "restart";
-      zone = "foo";
-      network.v6.addrPool = lib.mkForce [ ];
-      network.v4.addrPool = lib.mkForce [ ];
-      network.v4.static.containerPool = [ "10.100.200.10/24" ];
-      system-config = { pkgs, ... }: {
-        environment.systemPackages = [ pkgs.hello pkgs.nmap pkgs.dnsutils ];
-        systemd.services.systemd-networkd.environment.SYSTEMD_LOG_LEVEL = "debug";
-        systemd.network.networks."20-host0".networkConfig.DNS = "fd24::1";
-      };
-    };
-
-    # container2: to test virtual zones and special resolv.conf behavior.
-    nixos.containers.zones.foo.hostAddresses = [ "10.100.200.1/24" ];
-    systemd.nspawn.container2.execConfig.ResolvConf = "bind-host";
-    nixos.containers.instances.container2 = {
-      zone = "foo";
-      network.v6.addrPool = lib.mkForce [ ];
-      network.v4.addrPool = lib.mkForce [ ];
-      network.v4.static.containerPool = [ "10.100.200.11/24" ];
-    };
-
-    # publicnet: share the network with the host entirely, i.e. no new namespace.
-    nixos.containers.instances.publicnet = { };
-    systemd.nspawn.publicnet.networkConfig.VirtualEthernet = "no";
-
-    # ephemeral: containers with state cleared after a reboot.
-    nixos.containers.instances.ephemeral = {
-      ephemeral = true;
-      network.v6.addrPool = [ "fd00:beef::/64" ];
-      network.v4.addrPool = [ "192.168.102.0/28" ];
-    };
-  };
 
   testScript = ''
     import time
@@ -233,31 +293,26 @@ in
         server.wait_until_succeeds("ping -c3 10.100.200.10 >&2")
 
         server.wait_until_succeeds("ping -4 -c3 container1 >&2")
-
-        server.succeed("machinectl status container1 | grep '   fd' | xargs -I % ping % -c3")
-        server.succeed(
-            "machinectl status ephemeral | grep '192.168' | cut -d: -f2 | xargs ping -c3"
-        )
+        server.succeed("ping -6 -c3 container1")
 
         # Verify SLAAC on the ephemeral container
         # 1. Check if the address is marked as 'dynamic' (SLAAC)
         server.succeed(
-            "systemd-run -M ephemeral --pty --quiet -- ip -6 addr show dev host0 | grep -q 'dynamic'"
+            "machinectl shell ephemeral $(which ip) -6 addr show dev host0 | grep -q 'dynamic'"
         )
         # 2. Check if a default IPv6 route exists via the host
         server.succeed(
-            "systemd-run -M ephemeral --pty --quiet -- ip -6 route show default | grep -q 'proto ra'"
+            "machinectl shell ephemeral $(which ip) -6 route show default | grep -q 'proto ra'"
         )
 
     with subtest("DNS"):
         server.succeed("resolvectl query client.lan | grep fd23::1")
         server.succeed("ping -c3 client.lan >&2")
         server.succeed(
-            "systemd-run -M container1 --pty --quiet -- /bin/sh --login -c 'resolvectl query client.lan | grep fd23::1' >&2"
+            "machinectl shell container1 $(which resolvectl) query client.lan | tee /dev/stderr  | grep fd23::1 >&2"
         )
-
         server.succeed(
-            "systemd-run -M container2 --pty --quiet /bin/sh --login -c 'resolvectl query container2 | tee /dev/stderr | grep 127.0.0.2' >&2"
+            "machinectl shell container2 $(which resolvectl) query container2 | tee /dev/stderr | grep 127.0.0.2 >&2"
         )
 
     with subtest("Ephemeral"):
