@@ -66,6 +66,7 @@ let
     mkMerge [
       {
         execConfig = {
+          NotifyReady = true;
           Boot = false;
           Parameters = "${container.config.system.build.toplevel}/init";
           Ephemeral = yesNo config.ephemeral;
@@ -331,6 +332,8 @@ in
 
             serviceConfig = {
               TimeoutStartSec = timeoutStartSec;
+              # Only override the default ExecStart if credentials are defined.
+              # Other than credsArgv, the command line is unchanged.
               ExecStart =
                 let
                   credsArgv = lib.concatMapStringsSep " " ({ id, path }: "'--load-credential=${id}:${path}'") credentials;
@@ -338,12 +341,11 @@ in
                 optionals (credentials != [ ]) [
                   ""
                   "${config.systemd.package}/bin/systemd-nspawn ${credsArgv} --quiet --keep-unit --boot --network-veth --settings=override --machine=%i"
+
                 ];
               ExecReload = if activation.reloadScript != null then activation.reloadScript else
-              pkgs.writeShellScript "activate" ''
-                pid=$(${config.systemd.package}/bin/machinectl show '${container}' --value --property Leader)
-                ${pkgs.util-linux}/bin/nsenter -t "$pid" -a \
-                  -- ${images.${container}.container.config.system.build.toplevel}/bin/switch-to-configuration test
+              ''
+                ${config.systemd.package}/bin/systemd-run --quiet --machine=%i --collect --no-ask-password --pipe --service-type=exec ${toplevel}/bin/switch-to-configuration test
               '';
             };
           }
