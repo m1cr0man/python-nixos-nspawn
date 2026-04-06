@@ -2,49 +2,15 @@
 let
   shared = import ./shared.nix { inherit lib; };
 
-  inherit (shared) mkNetworkingOpts;
-
-  inherit (lib) mkIf mkOption mkOptionType mkEnableOption mkMerge types literalExpression;
-
-  recUpdate3 = a: b: c: lib.recursiveUpdate a (lib.recursiveUpdate b c);
-
-  mkStaticNetOptions = v:
-    assert lib.elem v [ 4 6 ]; {
-      "v${toString v}".static = {
-        hostAddresses = mkOption {
-          default = [ ];
-          type = types.listOf types.str;
-          example = literalExpression (
-            if v == 4 then ''[ "10.151.1.1/24" ]''
-            else ''[ "fd23::/64" ]''
-          );
-          description = ''
-            Address of the container on the host-side, i.e. the
-            subnet and address assigned to `ve-<name>`.
-          '';
-        };
-        containerPool = mkOption {
-          default = [ ];
-          type = types.listOf types.str;
-          example = literalExpression (
-            if v == 4 then ''[ "10.151.1.2/24" ]''
-            else ''[ "fd23::2/64" ]''
-          );
-
-          description = ''
-            Addresses to be assigned to the container, i.e. the
-            subnet and address assigned to the `host0`-interface.
-          '';
-        };
-      };
-    };
-
-  networkSubmodule = {
-    options = recUpdate3
-      (mkNetworkingOpts "veth")
-      (mkStaticNetOptions 4)
-      (mkStaticNetOptions 6);
-  };
+  inherit (lib)
+    mkIf
+    mkOption
+    mkOptionType
+    mkEnableOption
+    mkMerge
+    types
+    literalExpression
+    ;
 in
 {
   declarative = mkOption {
@@ -182,14 +148,39 @@ in
     };
   };
 
-  network = mkOption {
-    type = types.nullOr (types.submodule networkSubmodule);
+  hostNetworkConfig = mkOption {
+    type = types.nullOr types.attrs;
     default = null;
     description = ''
-      Networking options for a single container. With this option used, a
-      `veth`-pair is created. It's possible to configure a dynamically
-      managed network with private IPv4 and ULA IPv6 the same way like zones.
-      Additionally, it's possible to statically assign addresses to a container here.
+      Extra options to pass to the configuration for the hypervisor's network interface.
+      This only applies to containers using private networking - that is, they are not
+      assigned to a bridge or zone.
+
+      See {option}`systemd.network.networks` for a full list of options.
+
+      If null, the defaults defined by systemd are used. This results in a
+      network with a randomly assigned IPv4 subnet and an IPv6 link local address.
+      IPv4 NAT will be enabled and will grant the container internet access.
+
+      Using this is preferred over adding options via systemd.network.networks as
+      care has been taken to preserve the default host0 configuration from pkgs.systemd.
+    '';
+  };
+
+  containerNetworkConfig = mkOption {
+    type = types.nullOr types.attrs;
+    default = null;
+    description = ''
+      Extra options to pass to the configuration for the container's host0 interface.
+
+      See {option}`systemd.network.networks` for a full list of options.
+
+      If null, the defaults defined by systemd are used. This results in a
+      network with DHCP, link local addresses and LLDP enabled which is reachable from
+      the host network.
+
+      Using this is preferred over adding options via systemd.network.networks.host0 as
+      care has been taken to preserve the default host0 configuration from pkgs.systemd.
     '';
   };
 
@@ -276,25 +267,45 @@ in
           inherit system;
           inherit (pkgs) config;
         };
-      in
-      cfgs: import "${pkgs'.path}/nixos/lib/eval-config.nix" {
-        inherit system;
-        inherit (pkgs') lib;
-        pkgs = pkgs';
-        modules = cfgs ++ [
-          ./container-profile.nix
-          ({ pkgs, ... }: {
-            networking.hostName = lib.mkDefault name;
-            system.stateVersion = mkIf
-              (hostConfig != null)
-              (lib.mkDefault hostConfig.system.stateVersion);
-            systemd.network.networks."20-host0" = mkIf (config.network != null) {
-              name = "host0";
-              address = with config.network; v4.static.containerPool ++ v6.static.containerPool;
-            };
-          })
-        ];
-        prefix = [ "nixos" "containers" "instances" name "system-config" ];
+        apply =
+          let
+            system = pkgs.stdenv.hostPlatform.system;
+            # Evaluate user-specified nixpkgs if necessary
+            pkgs' =
+              if config.nixpkgs == null then
+                pkgs
+              else
+                import config.nixpkgs {
+                  inherit system;
+                  inherit (pkgs) config;
+                };
+          in
+          cfgs:
+          import "${pkgs'.path}/nixos/lib/eval-config.nix" {
+            inherit system;
+            inherit (pkgs') lib;
+            pkgs = pkgs';
+            modules = cfgs ++ [
+              ./container-profile.nix
+              (
+                { pkgs, ... }:
+                {
+                  networking.hostName = lib.mkDefault name;
+                  system.stateVersion = mkIf (hostConfig != null) (lib.mkDefault hostConfig.system.stateVersion);
+                  systemd.network.networks = mkIf (config.containerNetworkConfig != null) (
+                    shared.mkContainerNetwork config.containerNetworkConfig
+                  );
+                }
+              )
+            ];
+            prefix = [
+              "nixos"
+              "containers"
+              "instances"
+              name
+              "system-config"
+            ];
+          };
       };
   };
 } else { })

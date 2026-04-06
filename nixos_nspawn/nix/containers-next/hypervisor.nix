@@ -2,7 +2,7 @@
 
 let
   hostConfig = config;
-  cfg = config.nixos.containers.instances;
+  cfg = config.nixos.containers;
 
   shared = import ./shared.nix { inherit lib; };
   inherit (lib) mkIf;
@@ -10,10 +10,25 @@ let
   # Unfortunately, we can't map over the instances in the root of config.
   # It causes infinite recursion.
   # We have to construct the individual elements and combine them later.
-  containerBuilder = import ./container-builder.nix { inherit pkgs lib hostConfig shared; };
-  containerConfigs = lib.mapAttrs containerBuilder cfg;
-  assertions = lib.foldlAttrs (acc: name: container: acc ++ container.assertions) [] containerConfigs;
+  containerBuilder = import ./container-builder.nix {
+    inherit
+      pkgs
+      lib
+      hostConfig
+      shared
+      ;
+  };
+  containerConfigs = lib.mapAttrs containerBuilder cfg.instances;
+  assertions = lib.foldlAttrs (
+    acc: name: container:
+    acc ++ container.assertions
+  ) [ ] containerConfigs;
   systemdConfigs = lib.mapAttrsToList (name: container: container.systemd) containerConfigs;
+
+  # Build the zones into something that can be passed to mkMerge.
+  zoneConfigs = lib.mapAttrsToList (name: zoneCfg: {
+    network.networks = shared.mkNetwork name "zone" zoneCfg;
+  }) cfg.zones;
 in
 {
   options.nixos.containers = {
@@ -46,26 +61,21 @@ in
         A machine can be started with the
         `systemd-nspawn@<name>.service`-unit, during runtime it can
         be accessed with {manpage}`machinectl(1)`.
-
-        TODO is this true? I think not.
-
-        Please note that if both [](#opt-nixos.containers.instances._name_.network)
-        & [](#opt-nixos.containers.instances._name_.zone) are
-        `null`, the container will use the host's network.
       '';
     };
 
     zones = lib.mkOption {
-      type = lib.types.attrsOf (
-        lib.types.submodule {
-          options = shared.mkNetworkingOpts "zone";
-        }
-      );
+      type = lib.types.attrsOf (lib.types.attrs);
       default = { };
       description = ''
-        Networking zones for nspawn containers. In this mode, the host-side
-        of the virtual ethernet of a machine is managed by an interface named
-        `vz-<name>`.
+        Extra configuration for networking zones for nspawn containers.
+
+        See {option}`systemd.network.networks` for a full list of options.
+
+        If a container is defined using a zone not declared in this option,
+        the defaults defined by systemd are used. This results in a
+        network with DHCP, link local addresses and LLDP enabled which is reachable from
+        the host network.
       '';
     };
 
@@ -91,7 +101,7 @@ in
       };
     })
 
-    (mkIf (cfg != { }) {
+    (mkIf (cfg.instances != { } || cfg.zones != { }) {
 
       assertions = assertions ++ [
         {
@@ -105,29 +115,16 @@ in
       ];
 
       systemd = lib.mkMerge (
-        systemdConfigs
+        zoneConfigs
+        ++ systemdConfigs
         ++ [
           {
             tmpfiles.rules = [
               "d /nix/var/nix/profiles/per-nspawn 0755 root root"
             ];
 
-            # Force systemd network to be usd
+            # Force systemd network to be used
             network.enable = true;
-
-            network.networks = lib.mapAttrs' (name: zone:
-              lib.nameValuePair
-              "20-${shared.ifacePrefix "zone"}-${name}"
-              {
-                matchConfig = shared.mkMatchCfg "zone" name;
-                address = zone.v4.addrPool ++ zone.v6.addrPool ++ zone.hostAddresses;
-                networkConfig = shared.mkNetworkCfg {
-                  v4Nat = zone.v4.nat;
-                  v6Nat = zone.v6.nat;
-                };
-                ipv6Prefixes = map (p: { Prefix = p; }) zone.v6.addrPool;
-              }
-            ) hostConfig.nixos.containers.zones;
           }
         ]
       );
@@ -146,7 +143,7 @@ in
               EOF
               # END ${name}
             ''
-          ) "" cfg;
+          ) "" cfg.instances;
         in
         pkgs.runCommand "delcarative-container-jsons" { } (
           ''

@@ -44,19 +44,10 @@ in
       '';
     }
     {
-      assertion = container.zone == null || container.network == null || (container.network.v4.addrPool == [ ] && container.network.v6.addrPool == [ ]);
+      assertion = container.zone == null || container.hostNetworkConfig == null;
       message = ''
-        Cannot assign additional veth address pools to containr
-        `${name}' whilst using zone `${container.zone}'!
-        You may want to define the address pools on the zone instead.
-      '';
-    }
-    {
-      assertion = container.zone == null || container.network == null || (container.network.v4.static.hostAddresses == [ ] && container.network.v6.static.hostAddresses == [ ]);
-      message = ''
-        Cannot assign additional host addresses to containr
-        `${name}' whilst using zone `${container.zone}'.
-        You may want to define the addresses on the zone instead.
+        hostNetworkConfig and zone are mututally exclusive on container `${name}'.
+        You may want to configure `nixos.containers.zones.${container.zone}' instead.
       '';
     }
   ];
@@ -129,7 +120,7 @@ in
             Zone = mkIf (container.zone != null) container.zone;
             Port = mkForwardPorts container.forwardPorts;
           }
-          (mkIf (container.zone != null || container.network != null) {
+          (mkIf (container.zone != null || container.hostNetworkConfig != null) {
             Private = true;
             VirtualEthernet = "yes";
           })
@@ -164,23 +155,8 @@ in
       })
     ];
 
-    # TODO unify the ve and vz network configuration and simplify the structure a bit
-    # It looks like v4/v6 can be constructed from both and hostAddresses can be unified
-    network.networks = lib.mkIf (container.network != null && container.zone == null) {
-      "20-${shared.ifacePrefix "veth"}-${name}" = {
-        matchConfig = shared.mkMatchCfg "veth" name;
-        address =
-          container.network.v4.addrPool
-          ++ container.network.v6.addrPool
-          ++ container.network.v4.static.hostAddresses
-          ++ container.network.v6.static.hostAddresses;
-        networkConfig = shared.mkNetworkCfg {
-          dhcp = container.network.v4.addrPool != [ ];
-          v4Nat = container.network.v4.nat;
-          v6Nat = container.network.v6.nat;
-        };
-        ipv6Prefixes = map (p: { Prefix = p; }) container.network.v6.addrPool;
-      };
-    };
+    network.networks = lib.mkIf (container.hostNetworkConfig != null && container.zone == null) (
+      shared.mkNetwork name "veth" container.hostNetworkConfig
+    );
   };
 }

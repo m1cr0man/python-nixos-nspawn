@@ -92,12 +92,10 @@
       jsonConfig = pkgs'.writeText "data.json" (shared.jsonContent containerInstance);
 
       # Only select network units defined by this module.
-      nspawnNetworks = pkgs'.lib.optionals
-        (containerInstance.network != null && containerInstance.zone == null)
-        [ "20-${shared.ifacePrefix "veth"}-${name}.network" ];
-      networkUnits = builtins.map
-        (name: host.config.systemd.network.units."${name}".unit)
-        nspawnNetworks;
+      nspawnNetworks = pkgs'.lib.optionals (
+        containerInstance.hostNetworkConfig != null && containerInstance.zone == null
+      ) [ "20-${shared.ifacePrefix "veth"}-${name}.network" ];
+      networkUnits = builtins.map (name: host.config.systemd.network.units."${name}".unit) nspawnNetworks;
     in
     pkgs'.buildEnv {
       inherit name;

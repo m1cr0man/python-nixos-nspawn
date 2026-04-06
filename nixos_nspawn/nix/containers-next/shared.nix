@@ -1,11 +1,15 @@
 { lib }:
 let
   inherit (builtins) toString;
-  inherit (lib) elem types mkOption optionalAttrs;
+  inherit (lib)
+    elem
+    types
+    mkOption
+    optionalAttrs
+    mkDefault
+    ;
 in
 rec {
-  ifacePrefix = type: if type == "veth" then "ve" else "vz";
-
   # Options ignored when creating data.json files.
   # Also controls what options only trigger a container reload.
   ignoredOptions = [ "system-config" "nixpkgs" "toplevel" "timeoutStartSec" ];
@@ -15,77 +19,66 @@ rec {
 
   yesNo = v: if v then "yes" else "no";
 
-  mkMatchCfg =
-    type: name:
-    assert elem type [
-      "veth"
-      "zone"
-    ];
-    {
-      Name = "${ifacePrefix type}-${name}";
-      Driver = if type == "veth" then "veth" else "bridge";
-    };
+  ifacePrefix = type: if type == "veth" then "ve" else "vz";
 
-  # This is the standard options from 80-container-{ve,vz}.network
-  # with some extra optionality.
-  mkNetworkCfg =
-    {
-      dhcp ? true,
-      v4Nat ? true,
-      v6Nat ? true,
-    }:
-    {
-      LinkLocalAddressing = "yes";
-      DHCPServer = yesNo dhcp;
-      IPMasquerade =
-      if v4Nat && v6Nat then "both"
-      else if v4Nat then "ipv4"
-      else if v6Nat then "ipv6"
-      else "no";
-      LLDP = "yes";
-      EmitLLDP = "customer-bridge";
-      IPv6AcceptRA = "no";
-      IPv6SendRA = "yes";
-    };
-
-  mkNetworkingOpts = type:
+  # Both veth and zone interfaces use the same basic settings.
+  # Copied from ${pkgs.systemd}/lib/systemd/network/80-container-{ve,vz}.network
+  mkNetwork =
+    name: type: extraConfig:
     let
-      mkIPOptions = v: assert elem v [ 4 6 ]; {
-          addrPool = mkOption {
-            type = types.listOf types.str;
-            default =
-            if v == 4
-            then [ "0.0.0.0/${toString (if type == "zone" then 24 else 28)}" ]
-            else [ "::/64" ];
-
-            description = ''
-              Address pool to assign to a network. If
-              <literal>::/64</literal> or <literal>0.0.0.0/24</literal> is specified,
-              <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum>
-              </citerefentry> will assign an ULA IPv6 or private IPv4 address from
-              the address-pool of the given size to the interface.
-            '';
-          };
-          nat = mkOption {
-            default = true;
-            type = types.bool;
-            description = ''
-              Whether to set-up a basic NAT to enable internet access for the nspawn containers.
-            '';
-          };
-        };
+      prefix = ifacePrefix type;
+      v4PrefixLen = if type == "veth" then "28" else "24";
     in
-    assert elem type [ "veth" "zone" ]; {
-      v4 = mkIPOptions 4;
-      v6 = mkIPOptions 6;
-    } // optionalAttrs (type == "zone") {
-      hostAddresses = mkOption {
-        default = [ ];
-        type = types.listOf types.str;
-        description = ''
-          Address of the container on the host-side, i.e. the
-          subnet and address assigned to <literal>vz-&lt;name&gt;</literal>.
-        '';
-      };
+    {
+      "20-${prefix}-${name}" = lib.mkMerge [
+        extraConfig
+        {
+          matchConfig = {
+            Name = "${prefix}-${name}";
+            Driver = if type == "veth" then "veth" else "bridge";
+          };
+          address = [ "0.0.0.0/${v4PrefixLen}" ];
+          linkConfig.RequiredForOnline = mkDefault "no";
+          networkConfig = {
+            DHCPServer = mkDefault "yes";
+            IPMasquerade = mkDefault "both";
+            LLDP = mkDefault "yes";
+            EmitLLDP = mkDefault "customer-bridge";
+            IPv6AcceptRA = mkDefault "no";
+            IPv6SendRA = mkDefault "yes";
+            # This strays from the defaults - the standard config sets up both a private
+            # ipv4 subnet and a link local address.
+            # In practice, it only needs the LLIPv6 address.
+            LinkLocalAddressing = mkDefault "ipv6";
+          };
+          dhcpServerConfig = {
+            PersistLeases = mkDefault "runtime";
+            # This option is extremely new - not enabled for now.
+            # LocalLeaseDomain = mkDefault "_dhcp";
+          };
+        }
+      ];
     };
+
+  # Similarly copied from ${pkgs.systemd}/lib/systemd/network/80-container-host0.network
+  mkContainerNetwork = extraConfig: {
+    "20-host0" = lib.mkMerge [
+      extraConfig
+      {
+        matchConfig = {
+          Kind = "veth";
+          Name = "host0";
+          Virtualization = "container";
+        };
+        networkConfig = {
+          DHCP = mkDefault "yes";
+          LLDP = mkDefault "yes";
+          EmitLLDP = mkDefault "customer-bridge";
+          # Since we disabled LLIPv4 host-side, disable it container-side also.
+          LinkLocalAddressing = mkDefault "ipv6";
+        };
+        dhcpConfig.UseTimezone = "yes";
+      }
+    ];
+  };
 }
