@@ -22,21 +22,6 @@ in
     useNetworkd = true;
   };
 
-  # Configure the container's network interface
-  systemd.network.networks."20-host0" = {
-    matchConfig = {
-      Virtualization = "container";
-      Name = "host0";
-    };
-    dhcpConfig.UseTimezone = true;
-    networkConfig = {
-      DHCP = lib.mkDefault true;
-      LLDP = true;
-      EmitLLDP = "customer-bridge";
-      LinkLocalAddressing = lib.mkDefault "ipv6";
-    };
-  };
-
   # Fix for infinite recursion during build.
   # See https://github.com/NixOS/nixpkgs/issues/353225
   networking.resolvconf.enable = false;
