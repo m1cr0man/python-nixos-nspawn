@@ -1,4 +1,9 @@
-{ pkgs, lib, config, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 let
   sudo-nspawn' = import ../sudo-nspawn.nix { inherit (pkgs) sudo; };
   sudo-nspawn = if pkgs ? "sudo-nspawn" then pkgs.sudo-nspawn else sudo-nspawn';

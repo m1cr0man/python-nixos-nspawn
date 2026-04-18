@@ -1,4 +1,12 @@
-{ pkgs, lib, name, declarative ? true, config ? null, hostConfig ? null, ... }:
+{
+  pkgs,
+  lib,
+  name,
+  declarative ? true,
+  config ? null,
+  hostConfig ? null,
+  ...
+}:
 let
   shared = import ./shared.nix { inherit lib; };
 
@@ -86,23 +94,25 @@ in
   };
 
   credentials = mkOption {
-    type = types.listOf (types.submodule {
-      options = {
-        id = mkOption {
-          type = types.str;
-          description = ''
-            ID of the credential under which the credential can be referenced by services
-            inside the container.
-          '';
+    type = types.listOf (
+      types.submodule {
+        options = {
+          id = mkOption {
+            type = types.str;
+            description = ''
+              ID of the credential under which the credential can be referenced by services
+              inside the container.
+            '';
+          };
+          path = mkOption {
+            type = types.str;
+            description = ''
+              Path or ID of the credential passed to the container.
+            '';
+          };
         };
-        path = mkOption {
-          type = types.str;
-          description = ''
-            Path or ID of the credential passed to the container.
-          '';
-        };
-      };
-    });
+      }
+    );
     default = [ ];
     description = ''
       Credentials using the `LoadCredential=`-feature from
@@ -123,7 +133,12 @@ in
 
   activation = {
     strategy = mkOption {
-      type = types.enum [ "none" "reload" "restart" "dynamic" ];
+      type = types.enum [
+        "none"
+        "reload"
+        "restart"
+        "dynamic"
+      ];
       default = if declarative then "dynamic" else "restart";
       description = ''
         Decide whether to **restart** or **reload**
@@ -186,41 +201,45 @@ in
 
   forwardPorts = mkOption {
     default = [ ];
-    example = literalExpression
-      ''
-        [
-          { containerPort = 80; hostPort = 8080; protocol = "tcp"; }
-        ]
-      '';
+    example = literalExpression ''
+      [
+        { containerPort = 80; hostPort = 8080; protocol = "tcp"; }
+      ]
+    '';
 
-    type = types.listOf (types.submodule {
-      options = {
-        containerPort = mkOption {
-          type = types.nullOr types.port;
-          default = null;
-          description = ''
-            Port to forward on the container-side. If `null`, the
-            [](#opt-nixos.containers.instances._name_.forwardPorts._.hostPort)-option
-            will be used.
-          '';
-        };
+    type = types.listOf (
+      types.submodule {
+        options = {
+          containerPort = mkOption {
+            type = types.nullOr types.port;
+            default = null;
+            description = ''
+              Port to forward on the container-side. If `null`, the
+              [](#opt-nixos.containers.instances._name_.forwardPorts._.hostPort)-option
+              will be used.
+            '';
+          };
 
-        hostPort = mkOption {
-          type = types.port;
-          description = ''
-            Source port on the host-side.
-          '';
-        };
+          hostPort = mkOption {
+            type = types.port;
+            description = ''
+              Source port on the host-side.
+            '';
+          };
 
-        protocol = mkOption {
-          default = "tcp";
-          type = types.enum [ "udp" "tcp" ];
-          description = ''
-            Protocol specifier for the port-forward between host and container.
-          '';
+          protocol = mkOption {
+            default = "tcp";
+            type = types.enum [
+              "udp"
+              "tcp"
+            ];
+            description = ''
+              Protocol specifier for the port-forward between host and container.
+            '';
+          };
         };
-      };
-    });
+      }
+    );
 
     description = ''
       Define port-forwarding from a container to host. See `--port` section
@@ -237,35 +256,36 @@ in
     '';
   };
 
-} // (if declarative then {
-  nixpkgs = mkOption {
-    default = null;
-    type = types.nullOr types.path;
-    description = ''
-      Path to the `nixpkgs`-checkout or channel to use for the container.
-      If not provided, the current nixpkgs eval is used.
-    '';
-  };
+}
+// (
+  if declarative then
+    {
+      nixpkgs = mkOption {
+        default = null;
+        type = types.nullOr types.path;
+        description = ''
+          Path to the `nixpkgs`-checkout or channel to use for the container.
+          If not provided, the current nixpkgs eval is used.
+        '';
+      };
 
-  system-config = mkOption {
-    description = ''
-      NixOS configuration for the container.
-      See {manpage}`configuration.nix(5)` for available options.
-    '';
-    default = { };
-    type = mkOptionType {
-      name = "NixOS configuration";
-      # Instead of merging the attrs at this stage, map out each
-      # attrset into an import and let the eval-config merge them later.
-      merge = lib.const (map (x: rec { imports = [ x.value ]; key = _file; _file = x.file; }));
-    };
-    apply =
-      let
-        system = pkgs.stdenv.hostPlatform.system;
-        # Evaluate user-specified nixpkgs if necessary
-        pkgs' = if config.nixpkgs == null then pkgs else import config.nixpkgs {
-          inherit system;
-          inherit (pkgs) config;
+      system-config = mkOption {
+        description = ''
+          NixOS configuration for the container.
+          See {manpage}`configuration.nix(5)` for available options.
+        '';
+        default = { };
+        type = mkOptionType {
+          name = "NixOS configuration";
+          # Instead of merging the attrs at this stage, map out each
+          # attrset into an import and let the eval-config merge them later.
+          merge = lib.const (
+            map (x: rec {
+              imports = [ x.value ];
+              key = _file;
+              _file = x.file;
+            })
+          );
         };
         apply =
           let
@@ -307,5 +327,7 @@ in
             ];
           };
       };
-  };
-} else { })
+    }
+  else
+    { }
+)

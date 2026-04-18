@@ -12,10 +12,14 @@ in
 rec {
   # Options ignored when creating data.json files.
   # Also controls what options only trigger a container reload.
-  ignoredOptions = [ "system-config" "nixpkgs" "toplevel" "timeoutStartSec" ];
-  jsonContent = containerConfig: builtins.toJSON (
-    builtins.removeAttrs containerConfig ignoredOptions
-  );
+  ignoredOptions = [
+    "system-config"
+    "nixpkgs"
+    "toplevel"
+    "timeoutStartSec"
+  ];
+  jsonContent =
+    containerConfig: builtins.toJSON (builtins.removeAttrs containerConfig ignoredOptions);
 
   yesNo = v: if v then "yes" else "no";
 

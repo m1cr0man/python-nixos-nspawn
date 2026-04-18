@@ -90,7 +90,7 @@
 
         devShells = {
           default = (pkgs.python3.withPackages (pyPkgs: [ pyPkgs.rich ])).env.overrideAttrs (prev: {
-            nativeBuildInputs = prev.nativeBuildInputs ++ [ pkgs.ruff pkgs.ty ];
+            nativeBuildInputs = prev.nativeBuildInputs ++ [ pkgs.ruff pkgs.ty pkgs.nixfmt ];
           });
         };
 

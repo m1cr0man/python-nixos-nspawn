@@ -1,4 +1,6 @@
-{ sudo ? (import <nixpkgs> { }).sudo }:
+{
+  sudo ? (import <nixpkgs> { }).sudo,
+}:
 /*
   This description is yanked from this commit:
   https://github.com/ma27/nixpkgs/commit/e12408af98b8903d295539a68d9d4fe9fd0a18fe
@@ -34,6 +36,8 @@
   cannot do a full static build though since `sudo(8)` still needs to
   `dlopen(3)` various other libraries to function properly with PAM.
 */
-sudo.overrideAttrs (final: prev: {
-  configureFlags = prev.configureFlags ++ [ "--enable-static-sudoers" ];
-})
+sudo.overrideAttrs (
+  final: prev: {
+    configureFlags = prev.configureFlags ++ [ "--enable-static-sudoers" ];
+  }
+)
