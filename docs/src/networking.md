@@ -1,10 +1,42 @@
 # Networking
 
-Understanding container networking in the context of Systemd-nspawn can be a bit of a challenge.
+Understanding container networking in the context of systemd-nspawn can be a bit of a challenge.
 A lack of widespread use of either systemd-networkd or systemd-nspawn makes it difficult to
 determine the exact configuration you may be looking for when first configuring your containers.
 This document aims to help you understand the configuration possibilities and when you may want
 to use them.
+
+This project does not attempt to abstract over the systemd-network configuration options beyond
+what NixOS provides. The hope is that one less level of abstraction makes the configuration
+easier to reason with, and negates the need to cover every possible use case here.
+
+Check out the [systemd.network(5)](https://www.freedesktop.org/software/systemd/man/latest/systemd.network.html)
+documentation and [systemd.network.networks NixOS options](https://search.nixos.org/options?channel=unstable&include_modular_service_options=0&include_nixos_options=1&query=systemd.network.networks.)
+for the full picture of configuration options available.
+
+## Host/Hypervisor Configuration
+
+For correct operation of systemd-nspawn containers:
+
+- The host must be using systemd-networkd.
+- NAT and masquerading must be enabled.
+- IPv4/IPv6Forwarding must be enabled on the external interface.
+- The ve- and vz- interfaces are trusted by the host firewall, or the following ports are allowed:
+  - UDP 53: DNS
+  - UDP 67 + 68: DHCPv4
+  - UDP 546 + 547: DHCPv6
+
+For NixOS users, this configuration should suffice:
+
+```nix
+{
+  networking.firewall.trustedInterfaces = [ "ve-+" "vz-+" "vb-+" ];
+  networking.nat = {
+    enableIPv6 = true;
+    enable = true;
+  };
+}
+```
 
 ## The Default Config
 
@@ -126,6 +158,15 @@ You can specify a zone interface to use like so:
 The host side of zone configuration must be specified declaratively via `nixos.containers.zones`
 on the hypervisor. It cannot be configured via imperative container options.
 
+Within the containers, you may also consider enabling some sort of multicast DNS solution:
+
+- Link-Local Multicast Name Resolution (LLMNR): Enabled in systemd-resolved by default, containers
+  will be able to resolve eachother via their hostnames.
+  UDP 5355 must be opened on all containers.
+- multicast DNS (mDNS): Disabled in systemd-resolved by default, containers
+  will be able to resolve eachother via `$hostname.local`.
+  UDP 5353 must be opened on all containers.
+
 ## Bridges
 
 Bridges work similarly to zones, but the creation of the bridge is not managed by systemd-nspawn.
@@ -140,6 +181,19 @@ You can specify a bridge interface to use like so:
   nixosContainer.bridge = "mybridge";
 }
 ```
+
+## Advanced configuration
+
+For all other situations, you can directly configure systemd-network options.
+Some important info:
+
+- hostNetworkConfig configures the `ve-$container` or `vz-$container` interfaces as appropriate.
+  - This is an alias for `systemd.networks.20-$interface` in the host config.
+- containerNetworkConfig configures the `host0` interface in the container.
+  - This is an alias for `systemd.networks.20-host0` in the container config.
+- You can directly configure the container's systemd-nspawn options via
+  `systemd.nspawn.$name`. This allows you to configure MACVLAN networking, or disable
+  the VirtualEthernet interface for networking-free containers.
 
 ## Gotchas
 
