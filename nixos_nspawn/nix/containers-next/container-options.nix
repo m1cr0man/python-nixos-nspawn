@@ -272,7 +272,7 @@ in
         '';
       };
 
-      system-config = mkOption {
+      config = mkOption {
         description = ''
           NixOS configuration for the container.
           See {manpage}`configuration.nix(5)` for available options.
@@ -329,7 +329,7 @@ in
               "containers"
               "instances"
               name
-              "system-config"
+              "config"
             ];
           };
       };

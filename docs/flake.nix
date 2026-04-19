@@ -86,7 +86,7 @@
               '';
               example = pkgs.lib.literalExpression ''
                 mycontainer = {
-                  system-config = {
+                  config = {
                     services.openssh.enable = true;
                   };
                 };

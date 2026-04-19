@@ -116,7 +116,7 @@ in
       environment.etc."container-exposed-nginx-hosts".text =
         with lib;
         concatStringsSep " " (
-          attrNames config.nixos.containers.instances.container0.system-config.config.services.nginx.virtualHosts
+          attrNames config.nixos.containers.instances.container0.config.config.services.nginx.virtualHosts
         );
 
       ### Test containers + corresponding zones
@@ -138,7 +138,7 @@ in
             path = "${pkgs.writeText "totallysecret" "abc"}";
           }
         ];
-        system-config =
+        config =
           { pkgs, ... }:
           {
             networking.firewall.allowedTCPPorts = [ 80 ];
@@ -176,7 +176,7 @@ in
           ];
           networkConfig.DNS = "fd24::1";
         };
-        system-config =
+        config =
           { pkgs, ... }:
           {
             environment.systemPackages = [

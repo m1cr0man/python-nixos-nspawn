@@ -84,7 +84,7 @@
                   # nixpkgs is not inherited here as the host's pkgs will already point to nixpkgs
                   # and so we can avoid evaluating it again.
                   declarative = lib.mkForce false;
-                  system-config.imports = modules ++ [
+                  config.imports = modules ++ [
                     {
                       # Add the nixosContainer option to the container itself
                       # to prevent undefined option errors. It won't actually be evaluated.
@@ -106,7 +106,7 @@
       };
 
       containerInstance = host.config.nixos.containers.instances."${name}";
-      containerSystem = containerInstance.system-config;
+      containerSystem = containerInstance.config;
 
       nspawnUnit = host.config.systemd.nspawn.${name}.unit;
       serviceOverrides =

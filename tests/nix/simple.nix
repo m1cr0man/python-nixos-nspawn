@@ -15,7 +15,7 @@
       ...
     }:
     {
-      nixos.containers.instances.simple.system-config = {
+      nixos.containers.instances.simple.config = {
         services.nginx = {
           enable = true;
           virtualHosts.localhost.default = true;
@@ -24,7 +24,7 @@
       };
 
       specialisation.reload.configuration = {
-        nixos.containers.instances.simple.system-config = {
+        nixos.containers.instances.simple.config = {
           services.openssh.enable = true;
           networking.firewall.allowedTCPPorts = [ 22 ];
         };

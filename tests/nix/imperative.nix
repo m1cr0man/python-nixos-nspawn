@@ -142,7 +142,7 @@ in
         {
           imports = [ base ];
           nixos.containers.instances.bar = {
-            system-config.environment.systemPackages = [ pkgs.hello ];
+            config.environment.systemPackages = [ pkgs.hello ];
             zone = "foo";
           };
 

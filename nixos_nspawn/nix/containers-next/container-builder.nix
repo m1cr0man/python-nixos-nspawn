@@ -11,7 +11,7 @@ let
   inherit (lib) mkIf mkDefault;
   inherit (container) activation timeoutStartSec credentials;
   idmap = lib.optionalString container.userNamespacing ":rootidmap";
-  toplevel = container.system-config.config.system.build.toplevel;
+  toplevel = container.config.config.system.build.toplevel;
   credsArgv = lib.concatMapStringsSep " " (
     { id, path }: "'--load-credential=${id}:${path}'"
   ) credentials;

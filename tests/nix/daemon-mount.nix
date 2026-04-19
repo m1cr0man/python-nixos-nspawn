@@ -8,7 +8,7 @@
       bindMounts = [
         "/tmp"
       ];
-      system-config =
+      config =
         { pkgs, ... }:
         {
           environment.systemPackages = [

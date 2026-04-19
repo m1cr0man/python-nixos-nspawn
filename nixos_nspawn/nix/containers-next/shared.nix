@@ -13,7 +13,7 @@ rec {
   # Options ignored when creating data.json files.
   # Also controls what options only trigger a container reload.
   ignoredOptions = [
-    "system-config"
+    "config"
     "nixpkgs"
     "toplevel"
     "timeoutStartSec"

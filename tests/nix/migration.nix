@@ -121,7 +121,7 @@ let
 
       nixos.containers.instances = {
         # Corresponding config for test1 with the new interface
-        test1.system-config = {
+        test1.config = {
           systemd.network = {
             networks."10-mv-eth1" = {
               matchConfig.Name = "mv-eth1";

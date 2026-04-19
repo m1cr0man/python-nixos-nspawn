@@ -53,7 +53,7 @@ in
               nixos.containers.instances = lib.mkMerge [
                 (lib.filterAttrs (name: lib.const (name != "teststop")) instances)
                 {
-                  dynamic.system-config = {
+                  dynamic.config = {
                     services.nginx = {
                       enable = true;
                       virtualHosts."localhost" = {
@@ -70,12 +70,12 @@ in
                   };
                 }
                 {
-                  dynamic2.system-config = {
+                  dynamic2.config = {
                     services.nginx.enable = true;
                   };
                 }
                 {
-                  reload.system-config = {
+                  reload.config = {
                     services.nginx.enable = true;
                   };
                 }
@@ -93,7 +93,7 @@ in
                 (lib.filterAttrs (name: lib.const (name != "teststop")) instances)
                 {
                   new = { };
-                  restart.system-config.users.groups.nixtest = { };
+                  restart.config.users.groups.nixtest = { };
                 }
               ];
             };

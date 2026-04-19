@@ -81,11 +81,11 @@
         in
         {
           instances.vlandemo = {
-            system-config = mkNetworkCfg 5;
+            config = mkNetworkCfg 5;
           };
           instances.ephvlan = {
             ephemeral = true;
-            system-config = mkNetworkCfg 9;
+            config = mkNetworkCfg 9;
           };
         };
     };
