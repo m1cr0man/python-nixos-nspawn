@@ -25,6 +25,7 @@ For correct operation of systemd-nspawn containers:
   - UDP 53: DNS
   - UDP 67 + 68: DHCPv4
   - UDP 546 + 547: DHCPv6
+  - TCP + UDP 5355: LLMNR
 
 For NixOS users, this configuration should suffice:
 
@@ -201,7 +202,7 @@ Some important info:
   make IPv6 link-local routing work without specifying the interface manually.
   This is why `ping -6` will resolve the IP but fail to ping the container
   without adding `-I ve-example`. You can observe this behaviour on NixOS with
-  the following commands, noting the `%13` present on the last command:
+  the following commands, noting the `%13` present in the last command's output:
 
 ```sh
 $ ping -6 -c1 example

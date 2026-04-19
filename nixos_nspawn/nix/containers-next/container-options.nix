@@ -74,6 +74,7 @@ in
     type = types.listOf types.str;
     description = ''
       Extra paths to bind into the container.
+      These take the form of "hostPath:containerPath[:options]".
     '';
   };
 
@@ -266,6 +267,8 @@ in
         description = ''
           Path to the `nixpkgs`-checkout or channel to use for the container.
           If not provided, the current nixpkgs eval is used.
+
+          Only available for declarative containers.
         '';
       };
 
@@ -273,6 +276,9 @@ in
         description = ''
           NixOS configuration for the container.
           See {manpage}`configuration.nix(5)` for available options.
+
+          Only available for declarative containers. Imperative containers can
+          be configured as usual without this option.
         '';
         default = { };
         type = mkOptionType {

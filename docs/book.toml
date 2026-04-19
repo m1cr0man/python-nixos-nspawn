@@ -1,0 +1,10 @@
+[book]
+title = "python-nixos-nspawn"
+authors = ["Lucas Savva"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/m1cr0man/python-nixos-nspawn"
+# This isn't right for README.md, but oh well
+edit-url-template = "https://github.com/m1cr0man/python-nixos-nspawn/edit/main/docs/{path}"

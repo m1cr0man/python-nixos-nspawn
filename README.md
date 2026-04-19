@@ -1,6 +1,12 @@
-# NixOS NSpawn Manager
+# NixOS NSpawn Container Management
 
-Rewrite of the Nix RFC 108 POC imperative container manager.
+This repo provides tools and NixOS modules to support [Nix RFC 108](https://github.com/NixOS/rfcs/blob/master/rfcs/0108-nixos-containers.md)
+declarative and imperative container management.
+
+- `nixos-nspawn` tool for imperative container management compatible with non-NixOS systems.
+- `nixos.containers` module for declarative container management.
+- Unified implementation across both container types allowing for safe migration between them.
+- `nixos_nspawn` is library-friendly for easy automation extension.
 
 # Installation
 
