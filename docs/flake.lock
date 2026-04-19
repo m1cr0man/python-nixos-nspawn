@@ -1,0 +1,27 @@
+{
+  "nodes": {
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1776549584,
+        "narHash": "sha256-TKP4bTro4KFLfWYf8eIUm3HYYdSWkGSwS3uD3pFfic0=",
+        "owner": "m1cr0man",
+        "repo": "nixpkgs",
+        "rev": "debf3bea965c5bc1f1324fb498a378221d1a4d04",
+        "type": "github"
+      },
+      "original": {
+        "owner": "m1cr0man",
+        "ref": "rfc108-minimal",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
