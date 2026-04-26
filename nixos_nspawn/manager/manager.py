@@ -142,7 +142,7 @@ class NixosNspawnManager(object):
 
         container.activate_config(activation_strategy)
 
-    def remove(self, container: Container) -> None:
+    def remove(self, container: Container, delete_state: bool = True) -> None:
         self.__logger.debug(
             "Removing container [bold]%s[/bold]",
             container.name,
@@ -150,6 +150,6 @@ class NixosNspawnManager(object):
 
         if container.get_runtime_property("State", ignore_error=True):
             container.poweroff()
-        container.destroy()
+        container.destroy(delete_state=delete_state)
 
         self.__containers.remove(container)

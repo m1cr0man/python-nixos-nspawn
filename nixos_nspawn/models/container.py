@@ -365,7 +365,7 @@ class Container(Printable):
         else:
             self.reload()
 
-    def destroy(self) -> None:
+    def destroy(self, delete_state: bool = False) -> None:
         """Removes all files associated with the contanier."""
         self.__logger.info("Destroying files")
         for unit in self.__network_units:
@@ -374,7 +374,7 @@ class Container(Printable):
         self.unit_file.unlink(missing_ok=True)
         if self.__profile_dir.exists():
             rmtree(str(self.__profile_dir))
-        if self.__state_dir.exists():
+        if delete_state and self.__state_dir.exists():
             # Ensure /var/empty can be deleted by removing the immutable bit
             empty_dir = self.__state_dir / "var" / "empty"
             if empty_dir.exists():
