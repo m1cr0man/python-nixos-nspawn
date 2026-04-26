@@ -108,4 +108,5 @@ Check out the `nixos-nspawn --help` output for more documentation on common impe
 - [Networking configuration](./networking.md) is a comprehensive guide on container networking.
 - [Upstream tooling](./upstream-tooling.md) covers other CLI tools provided by systemd for
   container management.
+- [CLI Reference](./cli.md) for `nixos-nspawn`.
 - [Options reference](./options/container.md) for all `nixosContainer` options.

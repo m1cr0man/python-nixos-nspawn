@@ -45,6 +45,7 @@ you wish.
 
 Imperative NixOS containers can be used on any distribution subject to meeting these requirements:
 
+- Systemd 256 or later.
 - Nix package manager is installed and available.
 - systemd-networkd is responsible for network configuration.
 - Both /var/lib/machines and /etc/systemd/nspawn are writable and persistent.

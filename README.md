@@ -1,5 +1,7 @@
 # NixOS NSpawn Container Management
 
+[Documentation Home](https://m1cr0man.github.io/python-nixos-nspawn/)
+
 This repo provides tools and NixOS modules to support [Nix RFC 108](https://github.com/NixOS/rfcs/blob/master/rfcs/0108-nixos-containers.md)
 declarative and imperative container management.
 
@@ -8,29 +10,17 @@ declarative and imperative container management.
 - Unified implementation across both container types allowing for safe migration between them.
 - `nixos_nspawn` is library-friendly for easy automation extension.
 
-# Installation
+# One Command Demo
 
-You will need the following tools to get started:
+You can try imperative containers on any system with this one command subject to these requirements:
 
 - Systemd version 256 or newer.
-- Nix (optionally with flake support enabled).
-
-nixos_nspawn can be installed as a flake from this repository.
-A super quick way to get started is:
+- Nix package manager is available with flakes enabled.
+- Both /var/lib/machines and /etc/systemd/nspawn are writable.
 
 ```bash
-nix run github:m1cr0man/python-nixos-nspawn -- --help
-```
+$ sudo nix run github:m1cr0man/python-nixos-nspawn -- create --flake github:m1cr0man/python-nixos-nspawn#example example
 
-# Usage + Commands
-
-## Creating a container
-
-- Run the [example container](./flake.nix#L90), which creates a system with
- python installed.
-
-```bash
-$ sudo nixos-nspawn create --flake github:m1cr0man/python-nixos-nspawn#example example
 nixos_nspawn.container.example: Building configuration from flake github:m1cr0man/python-nixos-nspawn#example
 nixos_nspawn.container.example: Writing nspawn unit file
 nixos_nspawn.container.example: Starting
@@ -43,18 +33,7 @@ $ sudo machinectl enter
 [root@example:~]#
 ```
 
-## Listing containers
-
-- Use the `list` command to see all configured containers.
-
-```bash
-$ sudo nixos-nspawn list
-Showing 1 of 1 containers:
-Container example
-  Unit File: /etc/systemd/nspawn/example.nspawn
-  Imperative: True
-  State: running
-```
+Check out the full documentation: https://m1cr0man.github.io/python-nixos-nspawn/
 
 # Development environment setup
 

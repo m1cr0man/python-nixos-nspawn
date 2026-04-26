@@ -1,4 +1,4 @@
-# nixos_nspawn CLI reference
+# nixos-nspawn CLI reference
 
 This is generated from the source code.
 
