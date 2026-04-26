@@ -8,8 +8,7 @@ from rich.traceback import install as install_rich
 
 from nixos_nspawn import commands, constants, manager, metadata, models, utilities
 
-
-def main(args: list[str]) -> int:
+def create_parser() -> ArgumentParser:
     parser = ArgumentParser(description=f"NixOS imperative container manager v{metadata.version}")
 
     parser.add_argument(
@@ -34,6 +33,11 @@ def main(args: list[str]) -> int:
         )
         cmd_parser.set_defaults(handler=command)
         command.register_arguments(cmd_parser)
+
+    return parser
+
+def main(args: list[str]) -> int:
+    parser = create_parser()
 
     parsed_args = parser.parse_args(args[1:])
 
