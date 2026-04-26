@@ -29,7 +29,7 @@ Container example
   Unit File: /etc/systemd/nspawn/example.nspawn
   Imperative: True
   State: running
-$ sudo machinectl enter
+$ sudo machinectl shell example
 [root@example:~]#
 ```
 

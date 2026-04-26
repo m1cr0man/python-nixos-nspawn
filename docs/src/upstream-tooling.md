@@ -17,7 +17,7 @@ systemctl -M mycontainer --type=service
 # Get the recent logs for a particular service
 journalctl -M mycontainer -eu nginx.service
 
-# Run a command inside the container in a new exec unit
+# Fire-and-forget a command inside the container in a new exec unit
 systemd-run -M mycontainer -u testunit --collect --service-type=exec $(which ping) -c1 localhost
 
 ```

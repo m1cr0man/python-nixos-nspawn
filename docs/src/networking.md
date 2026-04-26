@@ -124,7 +124,7 @@ For both of the above cases, configuration is similar:
 {
   # ... Below the default configuration ...
   nixosContainer.hostNetworkConfig.ipv6Prefixes = [{
-    Prefix = "2001:1234:abcd:efgh::/64";
+    Prefix = "2001:1234:abcd:ef01::/64";
     # The host itself will need an address in this subnet to reach the container
     # and to serve a gateway. Assign will automatically pick an address to use.
     Assign = true;
@@ -134,7 +134,7 @@ For both of the above cases, configuration is similar:
   # The gateway address will be resolved via router advertisement.
   nixosContainer.containerNetworkConfig = {
     address = [
-      "2001:1234:abcd:efgh::2/64"
+      "2001:1234:abcd:ef01::2/64"
     ];
   };
 }
