@@ -27,12 +27,14 @@ jobs:
         uses: actions/configure-pages@v6
       - name: Install Nix
         uses: cachix/install-nix-action@v31
+      - name: Build CLI docs
+        run: nix run ./docs#clidocs
       - name: Build docs
-        run: cd docs && nix build
+        run: nix build ./docs
       - name: Upload docs
         uses: actions/upload-pages-artifact@v5
         with:
-          path: ./docs/result
+          path: ./result
 
   deploy:
     environment:

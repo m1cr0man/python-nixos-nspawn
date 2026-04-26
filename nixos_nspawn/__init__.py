@@ -1,6 +1,7 @@
-from .main import main, main_with_args
+from .main import create_parser, main, main_with_args
 
 __all__ = [
+    "create_parser",
     "main",
     "main_with_args",
 ]
