@@ -6,6 +6,8 @@ on:
     paths:
       - 'docs/**'
       - 'nixos_nspawn/nix/containers-next/*'
+      - 'nixos_nspawn/commands/*'
+      - 'nixos_nspawn/main.py'
   workflow_dispatch:
 
 permissions:

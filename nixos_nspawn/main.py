@@ -8,8 +8,12 @@ from rich.traceback import install as install_rich
 
 from nixos_nspawn import commands, constants, manager, metadata, models, utilities
 
+
 def create_parser() -> ArgumentParser:
-    parser = ArgumentParser(description=f"NixOS imperative container manager v{metadata.version}")
+    parser = ArgumentParser(
+        prog="nixos-nspawn",
+        description=f"NixOS imperative container manager v{metadata.version}",
+    )
 
     parser.add_argument(
         "--unit-file-dir",
@@ -35,6 +39,7 @@ def create_parser() -> ArgumentParser:
         command.register_arguments(cmd_parser)
 
     return parser
+
 
 def main(args: list[str]) -> int:
     parser = create_parser()
