@@ -108,7 +108,8 @@ on the internet, you can delegate a subnet of that address block to your contain
 Note on Routing: Your host's upstream provider must be routing your subnet to your host's
 external interface. If they rely on Neighbor Discovery (NDP) instead of static routing
 (common with providers like Hetzner), you may also need to enable
-`IPv6ProxyNDP = "yes";` on your host's main uplink interface.
+`IPv6ProxyNDP = "yes";` on your host's main uplink interface and add appropriate
+`IPV6ProxyNDPAddress` entries for each container.
 
 ### ULA (Private IPv6 with NAT)
 
