@@ -32,6 +32,8 @@ in
   sharedNix = mkOption {
     default = true;
     type = types.bool;
+    readOnly = true;
+    internal = true;
     description = ''
       ::: {.warning}
         Experimental setting! Expect things to break!

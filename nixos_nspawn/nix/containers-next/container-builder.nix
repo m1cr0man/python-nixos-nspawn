@@ -64,7 +64,7 @@ in
 
       preStart = lib.mkBefore ''
         if [ ! -d /var/lib/machines/${name} ]; then
-          mkdir -p /var/lib/machines/${name}/{etc,var,nix/var/nix}
+          mkdir -p /var/lib/machines/${name}/{etc,usr,var,nix/var/nix}
           touch /var/lib/machines/${name}/etc/{os-release,machine-id}
         fi
       '';
@@ -73,8 +73,8 @@ in
         (shared.jsonContent container)
         # Some support for out of band changes
         (builtins.toJSON [
-          hostConfig.systemd.nspawn.${name}.filesConfig
-          hostConfig.systemd.nspawn.${name}.networkConfig
+          hostConfig.systemd.nspawn.${name}.settings.Files
+          hostConfig.systemd.nspawn.${name}.settings.Network
         ])
       ];
 
@@ -100,7 +100,7 @@ in
 
     nspawn."${name}" = lib.mkMerge [
       {
-        execConfig = {
+        settings.Exec = {
           NotifyReady = true;
           Boot = false;
           Parameters = "${toplevel}/init";
@@ -110,11 +110,11 @@ in
           PrivateUsers = mkDefault (if container.userNamespacing then "pick" else "no");
           LinkJournal = mkDefault (if container.ephemeral then "auto" else "guest");
         };
-        filesConfig = {
+        settings.Files = {
           PrivateUsersOwnership = mkDefault (if container.userNamespacing then "auto" else "chown");
           Bind = container.bindMounts;
         };
-        networkConfig = lib.mkMerge [
+        settings.Network = lib.mkMerge [
           {
             Bridge = mkIf (container.bridge != null) container.bridge;
             Zone = mkIf (container.zone != null) container.zone;
@@ -127,14 +127,14 @@ in
         ];
       }
       (mkIf container.sharedNix {
-        filesConfig.BindReadOnly = [
+        settings.Files.BindReadOnly = [
           "/nix/store:/nix/store${idmap}"
           "/nix/var/nix/profiles:/nix/var/nix/profiles${idmap}"
         ];
       })
       (mkIf (container.sharedNix && container.mountDaemonSocket) {
-        filesConfig.BindReadOnly = [ "/nix/var/nix/db:/nix/var/nix/db${idmap}" ];
-        filesConfig.Bind = [ "/nix/var/nix/daemon-socket:/nix/var/nix/daemon-socket${idmap}" ];
+        settings.Files.BindReadOnly = [ "/nix/var/nix/db:/nix/var/nix/db${idmap}" ];
+        settings.Files.Bind = [ "/nix/var/nix/daemon-socket:/nix/var/nix/daemon-socket${idmap}" ];
       })
       (mkIf (!container.sharedNix) {
         # Bind (read-only) all the store paths required to run the container

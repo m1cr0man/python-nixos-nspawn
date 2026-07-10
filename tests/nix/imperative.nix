@@ -196,7 +196,7 @@ in
           out = onlyimperative.fail(
               "nixos-nspawn --verbose create bar --config ${pkgs.writeText "bar.nix" ''
                 {
-                  nixosContainer.sharedNix = false;
+                  nixosContainer.activation.strategy = "dynamic";
                 }
               ''} 2>&1"
           )
@@ -207,7 +207,7 @@ in
           # expect nix backtrace
           assert "while evaluating derivation 'bar'" in out
           # expect actual error
-          assert "Experimental 'sharedNix'-feature isn't supported for imperative containers!" in out
+          assert "'dynamic' is currently not supported for imperative containers!" in out
 
       with subtest("Update / Rollback"):
           out = onlyimperative.fail(

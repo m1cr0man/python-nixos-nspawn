@@ -12,20 +12,19 @@ let
 in
 {
   name = "container-tests";
+  interactive.sshBackdoor.enable = true;
 
   # Just an arbitrary `client'-machine to test the public endpoints
   # of containers hosted on a different server.
   nodes.client =
     { pkgs, ... }:
     {
+      environment.systemPackages = [ pkgs.tcpdump ];
       virtualisation.vlans = [ 1 ];
-      networking.firewall.trustedInterfaces = [ "eth1" ];
       systemd.network.networks."10-eth1" = {
         matchConfig.Name = "eth1";
+        networkConfig.IPv6AcceptRA = "yes";
         address = [ "fd23::1/64" ];
-        routes = [
-          { Destination = "fd24::1/64"; }
-        ];
       };
     };
 
@@ -45,13 +44,7 @@ in
         firewall.allowedTCPPorts = [ 80 ];
       };
 
-      # `server' is supposed to use `fd24::1/64`. However the test network in QEMU
-      # doesn't take care of neighbour resolution via NDP. To work around this, `server'
-      # proxies NDP traffic of container IPs.
-      services.ndppd = {
-        enable = true;
-        proxies.eth1.rules."fd24::2/64" = { };
-      };
+      environment.systemPackages = [ pkgs.tcpdump ];
 
       # Needed to make sure that the DHCPServer of `systemd-networkd' properly works and
       # can assign IPv4 addresses to containers.
@@ -104,10 +97,15 @@ in
         address = [ "fd24::1/64" ];
         networkConfig = {
           IPv4Forwarding = "yes";
+          # Could have used IPV6ProxyNDPAddress also for the one container, but RA is more robust.
+          IPv6SendRA = "yes";
           DNS = "fd24::1";
         };
         routes = [
           { Destination = "fd23::1/64"; }
+        ];
+        ipv6RoutePrefixes = [
+          { Route = "fd24::/64"; }
         ];
       };
 
@@ -166,7 +164,6 @@ in
       #  and to test DNS from the host network.
       systemd.network.networks."20-ve-container1".networkConfig.DNS = "fd24::1";
       nixos.containers.instances.container1 = {
-        sharedNix = false;
         activation.strategy = "restart";
         zone = "foo";
         containerNetworkConfig = {

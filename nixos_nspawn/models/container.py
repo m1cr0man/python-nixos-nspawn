@@ -287,8 +287,9 @@ class Container(Printable):
         self.__logger.debug("Creating state directories")
         etc = self.__state_dir / "etc"
         etc.mkdir(mode=0o755, parents=True, exist_ok=True)
-        self.__state_dir.chmod(mode=0o755)
         etc.chmod(mode=0o755)
+        self.__state_dir.chmod(mode=0o755)
+        (self.__state_dir / "usr").mkdir(mode=0o755, exist_ok=True)
         if not (os_release := etc / "os-release").exists():
             os_release.touch(mode=0o644, exist_ok=True)
 

@@ -82,13 +82,13 @@ in
               ];
 
               # An out of band nspawn change should trigger restarts too.
-              systemd.nspawn.restart.filesConfig.BindReadOnly = [ "/etc:/foo" ];
+              systemd.nspawn.restart.settings.Files.BindReadOnly = [ "/etc:/foo" ];
             };
           configchange2.configuration =
             { lib, pkgs, ... }:
             {
               imports = [ configchange.configuration ];
-              systemd.nspawn.dynamic.filesConfig.BindReadOnly = [ "/etc:/foo" ];
+              systemd.nspawn.dynamic.settings.Files.BindReadOnly = [ "/etc:/foo" ];
               nixos.containers.instances = lib.mkMerge [
                 (lib.filterAttrs (name: lib.const (name != "teststop")) instances)
                 {

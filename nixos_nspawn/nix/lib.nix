@@ -80,7 +80,7 @@
                 # A bit of a hack.. Use the imperative container's config as a
                 # declarative container. This will fill in the required parts of
                 # the module configuration to generate the Systemd units.
-                nixos.containers.instances."${name}" = config.nixosContainer // {
+                nixos.containers.instances."${name}" = (lib.removeAttrs config.nixosContainer [ "sharedNix" ]) // {
                   # nixpkgs is not inherited here as the host's pkgs will already point to nixpkgs
                   # and so we can avoid evaluating it again.
                   declarative = lib.mkForce false;
@@ -108,7 +108,9 @@
       containerInstance = host.config.nixos.containers.instances."${name}";
       containerSystem = containerInstance.config;
 
-      nspawnUnit = host.config.systemd.nspawn.${name}.unit;
+      nspawnUnit =
+        pkgs'.writeText "${name}.nspawn"
+          host.config.environment.etc."systemd/nspawn/${name}.nspawn".text;
       serviceOverrides =
         pkgs'.writeText "overrides.conf"
           host.config.systemd.units."systemd-nspawn@${name}.service".text;
