@@ -8,7 +8,7 @@ license = { text = "MIT" }
 requires-python = ">=3.11"
 classifiers = ["Programming Language :: Python :: 3"]
 
-dependencies = ["rich ~= 14.0"]
+dependencies = ["rich ~= 15.0"]
 
 [dependency-groups]
 dev = ["ruff ~= 0.11", "ty ~= 0.0.1"]
