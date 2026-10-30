@@ -29,15 +29,6 @@ to install this flake's module and overlay like so:
 }
 ```
 
-NixOS is currently lacking some critical features for imperative container management.
-You will need to incorporate the changes from [NixOS PR #216025](https://github.com/NixOS/nixpkgs/pull/216025)
-to ensure that your containers can be started properly and do not get stopped unintentionally
-during switch-to-configuration. A quick workaround is to use the nixpkgs branch from that PR:
-
-```nix
-    nixpkgs.url = "github:m1cr0man/nixpkgs/rfc108-minimal";
-```
-
 Otherwise, you can simply install the `nixos-nspawn` package from this flake however
 you wish.
 

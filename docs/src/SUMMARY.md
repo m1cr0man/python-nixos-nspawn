@@ -6,7 +6,7 @@
 [Declarative containers](declarative.md)
 [Migrating to nixos-nspawn](migration.md)
 [Networking](networking.md)
-[Systemd-provided tooling](upstream-tool.md)
+[Systemd-provided tooling](upstream-tooling.md)
 [Command Line Options Reference](cli.md)
 [Container Options Reference](options/index.md)
 - [Basic Options](options/container.md)
