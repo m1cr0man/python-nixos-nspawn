@@ -28,7 +28,7 @@ jobs:
         id: pages
         uses: actions/configure-pages@v6
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        uses: cachix/install-nix-action@v32
       - name: Build CLI docs
         run: nix run ./docs#clidocs
       - name: Build docs
